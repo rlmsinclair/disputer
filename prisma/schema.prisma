@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum LobbyStatus {
+  WAITING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum DisputeStatus {
+  IN_PROGRESS
+  JUDGING
+  COMPLETED
+  CANCELLED
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  DISMISSED
+}
+
+enum NotificationType {
+  INVITE
+  DISPUTE_RESULT
+  REMATCH_REQUEST
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String
+  tokenBalance Int      @default(100)
+  role         String   @default("user")
+  isBanned     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  lobbyPlayers      LobbyPlayer[]
+  disputePlayers    DisputePlayer[]
+  messages          Message[]
+  sentInvites       LobbyInvite[]      @relation("SentInvites")
+  receivedInvites   LobbyInvite[]      @relation("ReceivedInvites")
+  notifications     Notification[]
+  dailyRewards      DailyLoginReward[]
+  reportsFiled      Report[]           @relation("ReportsFiled")
+  reportsReceived   Report[]           @relation("ReportsReceived")
+  pushSubscriptions PushSubscription[]
+}
+
+model Lobby {
+  id                    String      @id @default(cuid())
+  creatorId             String
+  status                LobbyStatus @default(WAITING)
+  topic                 String?
+  timeLimitSeconds      Int?
+  maxMessageTimeSeconds Int?
+  messageTokenLimit     Int?
+  totalTokenLimit       Int?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  players LobbyPlayer[]
+  invites LobbyInvite[]
+  dispute Dispute?
+}
+
+model LobbyPlayer {
+  id                        String   @id @default(cuid())
+  lobbyId                   String
+  userId                    String
+  betAmount                 Int?
+  isReady                   Boolean  @default(false)
+  circlePosition            Int?
+  proposedMessageTokenLimit Int?
+  proposedTotalTokenLimit   Int?
+  proposedMaxMessageTime    Int?
+  topicConfirmed            Boolean  @default(false)
+  timeLimitConfirmed        Boolean  @default(false)
+  maxMessageTimeConfirmed   Boolean  @default(false)
+  betConfirmed              Boolean  @default(false)
+  joinedAt                  DateTime @default(now())
+
+  lobby Lobby @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([lobbyId, userId])
+}
+
+model LobbyInvite {
+  id        String   @id @default(cuid())
+  lobbyId   String
+  inviterId String
+  inviteeId String
+  accepted  Boolean?
+  createdAt DateTime @default(now())
+
+  lobby   Lobby @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  inviter User  @relation("SentInvites", fields: [inviterId], references: [id])
+  invitee User  @relation("ReceivedInvites", fields: [inviteeId], references: [id])
+
+  @@unique([lobbyId, inviteeId])
+}
+
+model Dispute {
+  id         String        @id @default(cuid())
+  lobbyId    String        @unique
+  status     DisputeStatus @default(IN_PROGRESS)
+  startedAt  DateTime      @default(now())
+  endedAt    DateTime?
+  tokensUsed Int           @default(0)
+  isPrivate  Boolean       @default(false)
+
+  lobby   Lobby           @relation(fields: [lobbyId], references: [id])
+  players DisputePlayer[]
+  messages Message[]
+  result  DisputeResult?
+  reports Report[]
+}
+
+model DisputePlayer {
+  id             String  @id @default(cuid())
+  disputeId      String
+  userId         String
+  betAmount      Int
+  circlePosition Int
+  isActive       Boolean @default(true)
+  tokensWon      Int     @default(0)
+  tokensLost     Int     @default(0)
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([disputeId, userId])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  disputeId  String
+  userId     String
+  content    String
+  tokenCount Int
+  turnNumber Int
+  createdAt  DateTime @default(now())
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+}
+
+model DisputeResult {
+  id             String   @id @default(cuid())
+  disputeId      String   @unique
+  claudeResponse String
+  winnerIds      String[]
+  reason         String
+  createdAt      DateTime @default(now())
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  payload   Json
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DailyLoginReward {
+  id     String   @id @default(cuid())
+  userId String
+  date   DateTime @db.Date
+  tokens Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+model Report {
+  id             String       @id @default(cuid())
+  reporterId     String
+  reportedUserId String
+  disputeId      String?
+  reason         String
+  status         ReportStatus @default(PENDING)
+  adminNote      String?
+  createdAt      DateTime     @default(now())
+
+  reporter     User     @relation("ReportsFiled", fields: [reporterId], references: [id])
+  reportedUser User     @relation("ReportsReceived", fields: [reportedUserId], references: [id])
+  dispute      Dispute? @relation(fields: [disputeId], references: [id])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
