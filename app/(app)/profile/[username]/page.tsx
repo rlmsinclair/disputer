@@ -16,7 +16,7 @@ export default async function ProfilePage({
 
   const user = await prisma.user.findUnique({
     where: { username },
-    select: { id: true, username: true, tokenBalance: true, createdAt: true },
+    select: { id: true, username: true, elo: true, createdAt: true },
   });
   if (!user) notFound();
 
@@ -40,15 +40,14 @@ export default async function ProfilePage({
 
   const disputeItems = disputes.map((d) => {
     const myPlayer = d.players.find((p) => p.userId === user.id)!;
+    const won = d.result?.winnerIds.includes(user.id) ?? false;
     return {
       id: d.id,
       topic: d.lobby.topic,
       isPrivate: d.isPrivate,
       startedAt: d.startedAt.toISOString(),
-      outcome: (d.result?.winnerIds.includes(user.id) ? "won" : "lost") as "won" | "lost",
-      tokensWon: myPlayer.tokensWon,
-      tokensLost: myPlayer.tokensLost,
-      betAmount: myPlayer.betAmount,
+      outcome: (won ? "won" : "lost") as "won" | "lost",
+      eloChange: myPlayer.eloChange,
       opponents: d.players
         .filter((p) => p.userId !== user.id)
         .map((p) => p.user.username),
@@ -84,9 +83,9 @@ export default async function ProfilePage({
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
-          label="Token Balance"
-          value={user.tokenBalance.toLocaleString()}
-          sub="tokens"
+          label="ELO Rating"
+          value={user.elo.toLocaleString()}
+          sub="rating"
           highlight
         />
         <StatCard label="Disputes" value={disputeItems.length} sub="played" />

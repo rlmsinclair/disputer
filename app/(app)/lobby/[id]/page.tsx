@@ -20,21 +20,10 @@ export default async function LobbyPage({
       players: {
         select: {
           userId: true,
-          betAmount: true,
           isReady: true,
-          circlePosition: true,
-          topicConfirmed: true,
-          timeLimitConfirmed: true,
-          maxMessageTimeConfirmed: true,
-          betConfirmed: true,
-          proposedMessageTokenLimit: true,
-          proposedTotalTokenLimit: true,
-          user: { select: { username: true, tokenBalance: true } },
+          joinedAt: true,
+          user: { select: { username: true, elo: true } },
         },
-      },
-      invites: {
-        where: { accepted: null },
-        select: { inviteeId: true, invitee: { select: { username: true } } },
       },
       dispute: { select: { id: true } },
     },
@@ -42,27 +31,21 @@ export default async function LobbyPage({
 
   if (!lobby) notFound();
 
-  // Redirect to active dispute if one exists
   if (lobby.status === "IN_PROGRESS" && lobby.dispute) {
     redirect(`/dispute/${lobby.dispute.id}`);
   }
 
   const isPlayer = lobby.players.some((p) => p.userId === userId);
-  const hasInvite = await prisma.lobbyInvite.findUnique({
-    where: { lobbyId_inviteeId: { lobbyId: id, inviteeId: userId } },
-  });
-
-  if (!isPlayer && !hasInvite) {
-    redirect("/lobby");
-  }
 
   return (
     <LobbyRoom
-      initialLobby={lobby}
+      initialLobby={{
+        ...lobby,
+        players: lobby.players.map((p) => ({ ...p, joinedAt: p.joinedAt.toISOString() })),
+        chatHistory: [],
+      }}
       currentUserId={userId}
-      currentUsername={session.user.name ?? ""}
       isPlayer={isPlayer}
-      hasInvite={!!hasInvite}
     />
   );
 }

@@ -8,7 +8,7 @@ export default async function AdminUsersPage() {
       take: 30,
       select: {
         id: true, username: true, email: true,
-        tokenBalance: true, role: true, isBanned: true, createdAt: true,
+        elo: true, role: true, isBanned: true, createdAt: true,
         _count: { select: { disputePlayers: true } },
       },
     }),

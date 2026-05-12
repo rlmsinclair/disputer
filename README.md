@@ -1,19 +1,19 @@
-# Disputer
+# Objection
 
-A real-time structured debate platform where users argue a topic, wager tokens on the outcome, and have Claude judge the winner.
+A real-time 1v1 debate platform where users argue a topic and have Claude judge the winner. Results affect each player's ELO rating.
 
 ## How it works
 
-1. A player creates a lobby and invites opponents
-2. Both sides agree on a topic, time limits, per-message token caps, and bet amounts
-3. The dispute begins — players take turns making arguments in a chat-style interface
-4. When all players pass or the token budget runs out, Claude reads the full transcript and delivers a verdict with reasoning
-5. Tokens are redistributed from losers to winners; results appear on profiles and the leaderboard
+1. A player creates a lobby and shares the link with their opponent
+2. The host sets the topic, turn timer, and word limits — both players can discuss settings in the lobby chat
+3. The dispute begins — players take turns making arguments in a chat-style interface, with each player's draft visible to the opponent letter-by-letter as they type
+4. When both players pass or the word budget runs out, Claude reads the full transcript and delivers a verdict with reasoning
+5. ELO ratings are updated based on the result; outcomes appear on profiles and the leaderboard
 
 ## Tech stack
 
 - **Next.js 16** — App Router, server components, API routes
-- **Socket.io** — real-time turn management, live lobby state
+- **Socket.io** — real-time turn management, live lobby state, live typing
 - **Prisma 7** + **PostgreSQL** — data layer with `@prisma/adapter-pg`
 - **Auth.js v5** — credentials-based auth with JWT sessions
 - **Anthropic SDK** — Claude judges disputes via the Messages API
@@ -30,20 +30,19 @@ app/
   api/            # REST API routes
 components/
   dispute/        # DisputeRoom — live debate UI
-  lobby/          # LobbyRoom — pre-game setup
-  leaderboard/    # Paginated rankings
-  profile/        # Dispute history
+  lobby/          # LobbyRoom — pre-game setup and lobby chat
+  leaderboard/    # Paginated ELO and wins rankings
+  profile/        # Dispute history with ELO changes
   admin/          # Users and reports tables
   ui/             # shadcn/ui primitives
 lib/
   auth.ts         # Auth.js configuration
   claude.ts       # Dispute judging via Claude
-  settlement.ts   # Token redistribution logic
+  elo.ts          # ELO calculation (K=32)
+  wordcount.ts    # Per-message word counting
   socket/
-    disputeHandlers.ts   # Turn management, timeouts, judging trigger
-    lobbyHandlers.ts     # Ready flow, bet negotiation, kick votes
-  tokens.ts       # Daily login reward
-  tokenizer.ts    # Per-message token counting (tiktoken)
+    disputeHandlers.ts   # Turn management, timeouts, judging, ELO settlement
+    lobbyHandlers.ts     # Start flow, settings, lobby chat
   push.ts         # Web Push notifications
 prisma/
   schema.prisma   # Database schema
@@ -107,6 +106,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run dev` | Start development server (Next.js + Socket.io) |
 | `npm run build` | Production build |
 | `npm run start` | Start production server |
+| `npm run tunnel` | Start Cloudflare tunnel for objection.wtf |
 | `npm run db:generate` | Regenerate Prisma client after schema changes |
 | `npm run db:migrate` | Run database migrations |
 | `npm run db:push` | Push schema changes without migrations (dev only) |
@@ -115,12 +115,18 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Key mechanics
 
-**Token economy** — new users start with 100 tokens and earn 100 more on each daily login. Bets are escrowed at dispute start; winners receive their stake back plus a share of the loser pool (capped at their own bet size). Failed judging refunds all bets.
+**ELO rating** — all users start at 1200. After each dispute, ratings shift using standard ELO (K=32). The expected score is calculated from the rating difference, so beating a stronger opponent yields more points than beating a weaker one.
 
-**Turn system** — players take turns in circle order. Each turn has a configurable time limit; missing it marks the player inactive (they can rejoin). All players passing consecutively ends the dispute.
+**1v1 only** — lobbies are capped at two players. The host shares a URL; anyone logged in can join an open lobby.
 
-**Token limits** — each player proposes a per-message and total-chat token limit; the lobby locks in the average of all proposals. Total is capped at 178,000 tokens to fit within Claude's context window.
+**Lobby chat** — players can chat in real-time before the dispute starts to agree on settings. Chat history is in-memory only and cleared when the dispute begins.
 
-**Judging** — Claude receives the full transcript plus a system prompt instructing it to judge on argument quality, clarity, and logic only (not tone or message count). The verdict includes winner IDs and a written explanation. If judging fails after 3 attempts, all bets are refunded and the dispute is cancelled.
+**Word limits** — the host controls the per-message word limit (default 200) and total chat word limit (default 10,000). Limits apply to actual word count (whitespace-separated), not tokens. The host can adjust these live and the other player sees updates immediately.
 
-**Privacy** — disputes can be toggled private by any participant. Private disputes are hidden from the leaderboard and other users' profiles.
+**Live typing** — as a player types their argument, the draft appears letter-by-letter for their opponent, styled as a ghost message with a blinking cursor.
+
+**Turn system** — players take turns in circle order. Each turn has a configurable time limit (default 60s); missing it marks the player inactive (they can rejoin). Both players passing consecutively ends the dispute.
+
+**Judging** — Claude receives the full transcript plus a system prompt instructing it to judge on argument quality, clarity, and logic only (not tone or message count). The verdict includes winner IDs and a written explanation. If judging fails after 3 attempts the dispute is cancelled with no ELO change.
+
+**Privacy** — disputes can be toggled private by any participant. Private disputes are excluded from the leaderboard and other users' profiles.

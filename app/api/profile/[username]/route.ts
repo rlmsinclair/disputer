@@ -11,7 +11,7 @@ export async function GET(
 
   const user = await prisma.user.findUnique({
     where: { username },
-    select: { id: true, username: true, tokenBalance: true, createdAt: true },
+    select: { id: true, username: true, elo: true, createdAt: true },
   });
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
@@ -35,11 +35,7 @@ export async function GET(
 
   const disputeItems = disputes.map((d) => {
     const myPlayer = d.players.find((p) => p.userId === user.id)!;
-    const opponents = d.players
-      .filter((p) => p.userId !== user.id)
-      .map((p) => ({ username: p.user.username }));
     const won = d.result?.winnerIds.includes(user.id) ?? false;
-
     return {
       id: d.id,
       topic: d.lobby.topic,
@@ -47,17 +43,15 @@ export async function GET(
       startedAt: d.startedAt.toISOString(),
       endedAt: d.endedAt?.toISOString() ?? null,
       outcome: won ? "won" : "lost",
-      tokensWon: myPlayer.tokensWon,
-      tokensLost: myPlayer.tokensLost,
-      betAmount: myPlayer.betAmount,
-      opponents,
+      eloChange: myPlayer.eloChange,
+      opponents: d.players
+        .filter((p) => p.userId !== user.id)
+        .map((p) => ({ username: p.user.username })),
     };
   });
 
   const wins = disputeItems.filter((d) => d.outcome === "won").length;
   const losses = disputeItems.filter((d) => d.outcome === "lost").length;
-
-  // Public wins (for leaderboard and display on other profiles)
   const publicWins = disputes.filter(
     (d) => !d.isPrivate && d.result?.winnerIds.includes(user.id)
   ).length;

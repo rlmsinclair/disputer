@@ -3,8 +3,6 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/lib/auth.config";
-import { grantDailyReward } from "@/lib/tokens";
-
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers: [
@@ -27,8 +25,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         );
         if (!valid) return null;
         if (user.isBanned) return null;
-
-        await grantDailyReward(user.id);
 
         return { id: user.id, email: user.email, name: user.username, role: user.role };
       },

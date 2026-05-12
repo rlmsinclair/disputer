@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const raw = searchParams.get("callbackUrl") ?? "";
+  const callbackUrl = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/lobby";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,7 +34,7 @@ export default function LoginPage() {
     if (result?.error) {
       toast.error("Invalid email or password.");
     } else {
-      router.push("/lobby");
+      window.location.href = callbackUrl;
     }
   }
 
@@ -81,7 +84,7 @@ export default function LoginPage() {
         <p className="text-sm text-muted-foreground">
           No account?{" "}
           <Link
-            href="/register"
+            href={`/register?callbackUrl=${encodeURIComponent(callbackUrl)}`}
             className="font-medium text-primary hover:underline"
           >
             Create one
@@ -89,5 +92,13 @@ export default function LoginPage() {
         </p>
       </CardFooter>
     </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

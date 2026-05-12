@@ -10,7 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [user, unreadCount] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { username: true, tokenBalance: true },
+      select: { username: true, elo: true },
     }),
     prisma.notification.count({
       where: { userId: session.user.id, read: false },
@@ -23,7 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen flex-col">
       <Navbar
         username={user.username}
-        tokenBalance={user.tokenBalance}
+        elo={user.elo ?? 1200}
         unreadNotifications={unreadCount}
       />
       <main className="flex-1">{children}</main>

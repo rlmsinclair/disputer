@@ -17,23 +17,20 @@ export default async function DisputePage({
     where: { id },
     include: {
       players: {
-        include: { user: { select: { id: true, username: true } } },
+        include: { user: { select: { id: true, username: true, elo: true } } },
         orderBy: { circlePosition: "asc" },
       },
       messages: {
         include: { user: { select: { id: true, username: true } } },
         orderBy: { createdAt: "asc" },
       },
-      result: {
-        include: { dispute: { include: { players: { include: { user: { select: { username: true } } } } } } },
-      },
+      result: true,
       lobby: {
         select: {
           topic: true,
-          timeLimitSeconds: true,
           maxMessageTimeSeconds: true,
-          messageTokenLimit: true,
-          totalTokenLimit: true,
+          messageWordLimit: true,
+          totalWordLimit: true,
         },
       },
     },
@@ -44,7 +41,6 @@ export default async function DisputePage({
   const userId = session.user!.id!;
   const isPlayer = dispute.players.some((p) => p.userId === userId);
 
-  // Build result payload if dispute is complete
   const resultPayload = dispute.result
     ? {
         winnerIds: dispute.result.winnerIds,
@@ -52,9 +48,8 @@ export default async function DisputePage({
         players: dispute.players.map((p) => ({
           userId: p.userId,
           username: p.user.username,
-          tokensWon: p.tokensWon,
-          tokensLost: p.tokensLost,
-          betAmount: p.betAmount,
+          eloChange: p.eloChange,
+          newElo: p.user.elo,
         })),
       }
     : null;
@@ -64,23 +59,21 @@ export default async function DisputePage({
       initialDispute={{
         id: dispute.id,
         status: dispute.status,
-        tokensUsed: dispute.tokensUsed,
+        wordsUsed: dispute.wordsUsed,
         isPrivate: dispute.isPrivate,
         lobby: dispute.lobby,
         players: dispute.players.map((p) => ({
           userId: p.userId,
           isActive: p.isActive,
           circlePosition: p.circlePosition,
-          betAmount: p.betAmount,
-          tokensWon: p.tokensWon,
-          tokensLost: p.tokensLost,
+          eloChange: p.eloChange,
           user: p.user,
         })),
         messages: dispute.messages.map((m) => ({
           id: m.id,
           userId: m.userId,
           content: m.content,
-          tokenCount: m.tokenCount,
+          wordCount: m.wordCount,
           turnNumber: m.turnNumber,
           createdAt: m.createdAt.toISOString(),
           user: m.user,

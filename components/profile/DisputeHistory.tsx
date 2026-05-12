@@ -13,9 +13,7 @@ type DisputeItem = {
   isPrivate: boolean;
   startedAt: string;
   outcome: "won" | "lost";
-  tokensWon: number;
-  tokensLost: number;
-  betAmount: number;
+  eloChange: number;
   opponents: string[];
 };
 
@@ -55,7 +53,6 @@ export function DisputeHistory({ disputes, isOwnProfile }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Filter tabs */}
       <div className="flex gap-1 rounded-lg border border-border/50 bg-secondary/30 p-1 w-fit">
         {(["all", "won", "lost"] as Filter[]).map((f) => (
           <button
@@ -92,14 +89,12 @@ export function DisputeHistory({ disputes, isOwnProfile }: Props) {
                 key={d.id}
                 className="group flex items-start gap-3 rounded-xl border border-border/50 bg-card px-4 py-3 hover:border-border transition-colors"
               >
-                {/* Outcome icon */}
                 <div className={`mt-0.5 shrink-0 rounded-full p-1.5 ${d.outcome === "won" ? "bg-green-500/10" : "bg-destructive/10"}`}>
                   {d.outcome === "won"
                     ? <Trophy className="h-3.5 w-3.5 text-green-400" />
                     : <TrendingDown className="h-3.5 w-3.5 text-destructive" />}
                 </div>
 
-                {/* Main content */}
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-start justify-between gap-2 flex-wrap">
                     <Link
@@ -110,13 +105,13 @@ export function DisputeHistory({ disputes, isOwnProfile }: Props) {
                     </Link>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge
-                        className={`text-[10px] px-1.5 py-0 ${
+                        className={`text-[10px] px-1.5 py-0 font-mono ${
                           d.outcome === "won"
                             ? "bg-green-500/15 text-green-400 border-green-500/20"
                             : "bg-destructive/15 text-destructive border-destructive/20"
                         }`}
                       >
-                        {d.outcome === "won" ? `+${d.tokensWon}` : `-${d.tokensLost}`} tokens
+                        {d.eloChange >= 0 ? `+${d.eloChange}` : `${d.eloChange}`} ELO
                       </Badge>
                       {isPrivate && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
@@ -132,12 +127,9 @@ export function DisputeHistory({ disputes, isOwnProfile }: Props) {
                     </span>
                     <span className="text-muted-foreground/40 text-xs">·</span>
                     <span className="text-xs text-muted-foreground">{date}</span>
-                    <span className="text-muted-foreground/40 text-xs">·</span>
-                    <span className="text-xs text-muted-foreground">Bet: {d.betAmount}</span>
                   </div>
                 </div>
 
-                {/* Privacy toggle (own profile only) */}
                 {isOwnProfile && (
                   <Button
                     variant="ghost"

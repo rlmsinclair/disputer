@@ -13,7 +13,9 @@ export default auth((req) => {
   const isAdminPath = pathname.startsWith("/admin");
 
   if (!req.auth && !isPublic) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    const loginUrl = new URL("/login", req.url);
+    loginUrl.searchParams.set("callbackUrl", req.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   if (isAdminPath && req.auth?.user) {

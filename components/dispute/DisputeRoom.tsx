@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState, useCallback } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  Check, ChevronRight, Clock, Eye, EyeOff, Gavel, Loader2,
+  Eye, EyeOff, Gavel, Loader2,
   RotateCcw, Send, SkipForward, Trophy, Wifi, WifiOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ type DisputeMessage = {
   id: string;
   userId: string;
   content: string;
-  tokenCount: number;
+  wordCount: number;
   turnNumber: number;
   createdAt: string;
   user: { id: string; username: string };
@@ -28,24 +28,21 @@ type DisputePlayer = {
   userId: string;
   isActive: boolean;
   circlePosition: number;
-  betAmount: number;
-  tokensWon: number;
-  tokensLost: number;
+  eloChange: number;
   user: { id: string; username: string };
 };
 
 type LobbyMeta = {
   topic: string | null;
-  timeLimitSeconds: number | null;
   maxMessageTimeSeconds: number | null;
-  messageTokenLimit: number | null;
-  totalTokenLimit: number | null;
+  messageWordLimit: number | null;
+  totalWordLimit: number | null;
 };
 
 type DisputeData = {
   id: string;
   status: string;
-  tokensUsed: number;
+  wordsUsed: number;
   isPrivate: boolean;
   lobby: LobbyMeta;
   players: DisputePlayer[];
@@ -55,18 +52,14 @@ type DisputeData = {
 type ResultPayload = {
   winnerIds: string[];
   reason: string;
-  players: { userId: string; username: string; tokensWon: number; tokensLost: number; betAmount: number }[];
+  players: { userId: string; username: string; eloChange: number; newElo: number }[];
 };
 
-// ─── Player colours (consistent per position) ─────────────────────────────────
+// ─── Player colours ───────────────────────────────────────────────────────────
 
 const PLAYER_COLOURS = [
   "text-blue-400 bg-blue-400/10 border-blue-400/20",
   "text-violet-400 bg-violet-400/10 border-violet-400/20",
-  "text-amber-400 bg-amber-400/10 border-amber-400/20",
-  "text-cyan-400 bg-cyan-400/10 border-cyan-400/20",
-  "text-pink-400 bg-pink-400/10 border-pink-400/20",
-  "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
 ];
 
 function playerColour(circlePosition: number) {
@@ -76,7 +69,7 @@ function playerColour(circlePosition: number) {
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
 type Action =
-  | { type: "NEW_MESSAGE"; message: DisputeMessage; tokensUsed: number }
+  | { type: "NEW_MESSAGE"; message: DisputeMessage; wordsUsed: number }
   | { type: "PLAYER_STATUS"; userId: string; isActive: boolean }
   | { type: "PRIVACY"; isPrivate: boolean }
   | { type: "STATUS"; status: string };
@@ -84,11 +77,7 @@ type Action =
 function reducer(state: DisputeData, action: Action): DisputeData {
   switch (action.type) {
     case "NEW_MESSAGE":
-      return {
-        ...state,
-        messages: [...state.messages, action.message],
-        tokensUsed: action.tokensUsed,
-      };
+      return { ...state, messages: [...state.messages, action.message], wordsUsed: action.wordsUsed };
     case "PLAYER_STATUS":
       return {
         ...state,
@@ -103,22 +92,6 @@ function reducer(state: DisputeData, action: Action): DisputeData {
     default:
       return state;
   }
-}
-
-// ─── Countdown hook ───────────────────────────────────────────────────────────
-
-function useCountdown(expiresAt: number | null) {
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!expiresAt) { setTimeLeft(null); return; }
-    const tick = () => setTimeLeft(Math.max(0, Math.round((expiresAt - Date.now()) / 1000)));
-    tick();
-    const id = setInterval(tick, 500);
-    return () => clearInterval(id);
-  }, [expiresAt]);
-
-  return timeLeft;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -139,33 +112,28 @@ export function DisputeRoom({
 }: Props) {
   const router = useRouter();
   const [dispute, dispatch] = useReducer(reducer, initialDispute);
-  const [currentTurnUserId, setCurrentTurnUserId] = useState<string | null>(null);
-  const [turnExpiresAt, setTurnExpiresAt] = useState<number | null>(null);
   const [result, setResult] = useState<ResultPayload | null>(initialResult);
   const [isJudging, setIsJudging] = useState(dispute.status === "JUDGING");
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [rejoining, setRejoining] = useState(false);
+  const [liveDrafts, setLiveDrafts] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const timeLeft = useCountdown(turnExpiresAt);
-  const isMyTurn = currentTurnUserId === currentUserId;
   const me = dispute.players.find((p) => p.userId === currentUserId);
   const iAmDisconnected = me && !me.isActive && dispute.status === "IN_PROGRESS";
-  const tokenLimit = dispute.lobby.messageTokenLimit ?? 500;
-  // rough client-side token estimate (4 chars ≈ 1 token)
-  const draftTokenEstimate = Math.ceil(draft.length / 4);
-  const totalLimit = dispute.lobby.totalTokenLimit ?? 0;
-  const tokensRemaining = totalLimit - dispute.tokensUsed;
-  const tokenProgress = totalLimit > 0 ? (dispute.tokensUsed / totalLimit) * 100 : 0;
 
-  // Auto-scroll to bottom when messages arrive
+  const wordLimit = dispute.lobby.messageWordLimit ?? 200;
+  const totalLimit = dispute.lobby.totalWordLimit ?? 0;
+  const wordsRemaining = totalLimit - dispute.wordsUsed;
+  const wordProgress = totalLimit > 0 ? (dispute.wordsUsed / totalLimit) * 100 : 0;
+  const draftWordCount = draft.trim() ? draft.trim().split(/\s+/).filter(Boolean).length : 0;
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [dispute.messages.length]);
 
-  // Socket setup
   useEffect(() => {
     if (dispute.status === "COMPLETED" || dispute.status === "CANCELLED") return;
 
@@ -173,34 +141,29 @@ export function DisputeRoom({
     const event = isPlayer ? "dispute:join" : "dispute:spectate";
     s.emit(event, { disputeId: dispute.id, userId: currentUserId });
 
-    s.on("dispute:state", (data: DisputeData & { currentTurnUserId: string | null; turnExpiresAt: number | null }) => {
-      setCurrentTurnUserId(data.currentTurnUserId);
-      setTurnExpiresAt(data.turnExpiresAt);
+    s.on("dispute:new_message", ({ message, wordsUsed }: { message: DisputeMessage; wordsUsed: number }) => {
+      dispatch({ type: "NEW_MESSAGE", message, wordsUsed });
+      setLiveDrafts((prev) => {
+        const next = { ...prev };
+        delete next[message.userId];
+        return next;
+      });
     });
 
-    s.on("dispute:turn", ({ userId, expiresAt }: { userId: string; expiresAt: number }) => {
-      setCurrentTurnUserId(userId);
-      setTurnExpiresAt(expiresAt);
-      if (userId === currentUserId) textareaRef.current?.focus();
-    });
-
-    s.on("dispute:new_message", ({ message, tokensUsed }: { message: DisputeMessage; tokensUsed: number }) => {
-      dispatch({ type: "NEW_MESSAGE", message, tokensUsed });
+    s.on("dispute:typing", ({ userId, content }: { userId: string; content: string }) => {
+      setLiveDrafts((prev) => {
+        if (!content) {
+          const next = { ...prev };
+          delete next[userId];
+          return next;
+        }
+        return { ...prev, [userId]: content };
+      });
     });
 
     s.on("dispute:player_passed", ({ userId }: { userId: string }) => {
       const p = dispute.players.find((pl) => pl.userId === userId);
-      if (p) toast.info(`${p.user.username} passed their turn.`);
-    });
-
-    s.on("dispute:turn_timeout", ({ userId }: { userId: string }) => {
-      const p = dispute.players.find((pl) => pl.userId === userId);
-      dispatch({ type: "PLAYER_STATUS", userId, isActive: false });
-      if (userId === currentUserId) {
-        toast.warning("Time's up! You can rejoin while the dispute is still active.");
-      } else if (p) {
-        toast.info(`${p.user.username} ran out of time.`);
-      }
+      if (p) toast.info(`${p.user.username} is done arguing.`);
     });
 
     s.on("dispute:player_disconnected", ({ userId }: { userId: string }) => {
@@ -234,11 +197,9 @@ export function DisputeRoom({
     });
 
     return () => {
-      s.off("dispute:state");
-      s.off("dispute:turn");
       s.off("dispute:new_message");
+      s.off("dispute:typing");
       s.off("dispute:player_passed");
-      s.off("dispute:turn_timeout");
       s.off("dispute:player_disconnected");
       s.off("dispute:player_rejoined");
       s.off("dispute:judging");
@@ -249,10 +210,19 @@ export function DisputeRoom({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispute.id, dispute.status, isPlayer, currentUserId]);
 
-  // ── Actions ──────────────────────────────────────────────────────────────────
+  function updateDraft(value: string) {
+    setDraft(value);
+    if (isPlayer && dispute.status === "IN_PROGRESS") {
+      getSocket().emit("dispute:typing", {
+        disputeId: dispute.id,
+        userId: currentUserId,
+        content: value,
+      });
+    }
+  }
 
   function sendMessage() {
-    if (!draft.trim() || !isMyTurn || sending) return;
+    if (!draft.trim() || sending) return;
     setSending(true);
     getSocket().emit("dispute:message", {
       disputeId: dispute.id,
@@ -264,7 +234,6 @@ export function DisputeRoom({
   }
 
   function passTurn() {
-    if (!isMyTurn) return;
     getSocket().emit("dispute:pass", { disputeId: dispute.id, userId: currentUserId });
   }
 
@@ -282,9 +251,9 @@ export function DisputeRoom({
     });
   }
 
-  const currentTurnPlayer = dispute.players.find((p) => p.userId === currentTurnUserId);
-
-  // ── Render ───────────────────────────────────────────────────────────────────
+  const liveDraftEntries = Object.entries(liveDrafts).filter(
+    ([uid, content]) => uid !== currentUserId && content
+  );
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)]">
@@ -301,17 +270,16 @@ export function DisputeRoom({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* Token progress */}
           {totalLimit > 0 && dispute.status === "IN_PROGRESS" && (
             <div className="hidden sm:flex items-center gap-2">
               <div className="w-24 h-1.5 rounded-full bg-secondary overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${tokenProgress > 80 ? "bg-destructive" : "bg-primary"}`}
-                  style={{ width: `${Math.min(tokenProgress, 100)}%` }}
+                  className={`h-full rounded-full transition-all ${wordProgress > 80 ? "bg-destructive" : "bg-primary"}`}
+                  style={{ width: `${Math.min(wordProgress, 100)}%` }}
                 />
               </div>
               <span className="text-xs text-muted-foreground tabular-nums">
-                {tokensRemaining.toLocaleString()} left
+                {wordsRemaining.toLocaleString()} words left
               </span>
             </div>
           )}
@@ -344,26 +312,23 @@ export function DisputeRoom({
           </p>
           {dispute.players.map((p) => {
             const colour = playerColour(p.circlePosition);
-            const isCurrent = p.userId === currentTurnUserId;
+            const isTyping = !!liveDrafts[p.userId];
             const isMe = p.userId === currentUserId;
             return (
               <div
                 key={p.userId}
-                className={`rounded-lg border px-2.5 py-2 transition-colors ${isCurrent ? "border-primary/40 bg-primary/5" : "border-border/40 bg-secondary/20"}`}
+                className={`rounded-lg border px-2.5 py-2 transition-colors ${isTyping ? "border-primary/40 bg-primary/5" : "border-border/40 bg-secondary/20"}`}
               >
                 <div className="flex items-center gap-2">
                   <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[11px] font-bold border ${colour}`}>
                     {p.user.username[0].toUpperCase()}
                   </div>
                   <span className="text-sm font-medium truncate flex-1">{p.user.username}</span>
-                  {isCurrent && (
+                  {isTyping && (
                     <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse shrink-0" />
                   )}
                 </div>
                 <div className="flex items-center justify-between mt-1.5">
-                  <span className="text-[11px] text-muted-foreground">
-                    Bet: {p.betAmount}
-                  </span>
                   <span className="flex items-center gap-1">
                     {p.isActive
                       ? <Wifi className="h-3 w-3 text-green-500" />
@@ -378,22 +343,16 @@ export function DisputeRoom({
           <Separator className="my-1" />
 
           <div className="text-[11px] text-muted-foreground space-y-1">
-            {dispute.lobby.timeLimitSeconds && (
+            {dispute.lobby.messageWordLimit && (
               <div className="flex justify-between">
-                <span>Time limit</span>
-                <span>{Math.floor(dispute.lobby.timeLimitSeconds / 60)}m</span>
+                <span>Words/msg</span>
+                <span>{dispute.lobby.messageWordLimit}</span>
               </div>
             )}
-            {dispute.lobby.maxMessageTimeSeconds && (
+            {dispute.lobby.totalWordLimit && (
               <div className="flex justify-between">
-                <span>Per turn</span>
-                <span>{dispute.lobby.maxMessageTimeSeconds}s</span>
-              </div>
-            )}
-            {dispute.lobby.messageTokenLimit && (
-              <div className="flex justify-between">
-                <span>Msg limit</span>
-                <span>{dispute.lobby.messageTokenLimit} tok</span>
+                <span>Total words</span>
+                <span>{dispute.lobby.totalWordLimit.toLocaleString()}</span>
               </div>
             )}
           </div>
@@ -431,7 +390,7 @@ export function DisputeRoom({
                       <span className="text-sm font-semibold">{msg.user.username}</span>
                       {isMe && <span className="text-[10px] text-muted-foreground">(you)</span>}
                       <span className="text-[11px] text-muted-foreground ml-auto">
-                        #{msg.turnNumber} · {msg.tokenCount} tok
+                        #{msg.turnNumber} · {msg.wordCount}w
                       </span>
                     </div>
                   )}
@@ -442,7 +401,6 @@ export function DisputeRoom({
               );
             })}
 
-            {/* Judging indicator */}
             {isJudging && (
               <div className="flex items-center gap-3 mt-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
                 <Gavel className="h-5 w-5 text-primary animate-bounce shrink-0" />
@@ -455,6 +413,30 @@ export function DisputeRoom({
 
             <div ref={messagesEndRef} />
           </div>
+
+          {/* ── Live drafts — fixed above input, outside scroll ── */}
+          {liveDraftEntries.length > 0 && dispute.status === "IN_PROGRESS" && (
+            <div className="border-t border-border/30 bg-background px-4 py-2 space-y-2 shrink-0">
+              {liveDraftEntries.map(([uid, content]) => {
+                const player = dispute.players.find((p) => p.userId === uid);
+                const colour = player ? playerColour(player.circlePosition) : PLAYER_COLOURS[0];
+                return (
+                  <div key={uid} className="opacity-60">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold border ${colour}`}>
+                        {player?.user.username[0].toUpperCase() ?? "?"}
+                      </div>
+                      <span className="text-xs font-semibold">{player?.user.username ?? "…"}</span>
+                      <span className="text-[10px] text-muted-foreground italic">typing…</span>
+                    </div>
+                    <div className="ml-7 text-sm leading-relaxed text-foreground/70 italic">
+                      {content}<span className="animate-pulse">▍</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* ── Result panel ── */}
           {result && (
@@ -470,7 +452,6 @@ export function DisputeRoom({
                 </h3>
               </div>
 
-              {/* Per-player outcomes */}
               <div className="flex flex-wrap gap-2">
                 {result.players.map((p) => {
                   const won = result.winnerIds.includes(p.userId);
@@ -480,15 +461,15 @@ export function DisputeRoom({
                       className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm ${won ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-destructive/30 bg-destructive/10 text-destructive"}`}
                     >
                       <span className="font-medium">{p.username}</span>
-                      <span className="tabular-nums">
-                        {won ? `+${p.tokensWon}` : `-${p.tokensLost}`} tokens
+                      <span className="tabular-nums font-mono">
+                        {won ? `+${p.eloChange}` : `${p.eloChange}`} ELO
                       </span>
+                      <span className="text-[11px] opacity-60">→ {p.newElo}</span>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Claude's reasoning */}
               <div className="space-y-1.5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <Gavel className="h-3.5 w-3.5" /> Claude's Reasoning
@@ -524,53 +505,24 @@ export function DisputeRoom({
             </div>
           )}
 
-          {/* ── Turn bar + input ── */}
+          {/* ── Input ── */}
           {isPlayer && dispute.status === "IN_PROGRESS" && !iAmDisconnected && (
             <div className="border-t border-border/50 bg-card px-4 pt-3 pb-4 space-y-2 shrink-0">
-              {/* Turn indicator */}
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-1.5">
-                  {isMyTurn ? (
-                    <>
-                      <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                      <span className="font-semibold text-primary">Your turn</span>
-                    </>
-                  ) : (
-                    <>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">
-                        {currentTurnPlayer?.user.username ?? "…"}'s turn
-                      </span>
-                    </>
-                  )}
+              {draft.length > 0 && (
+                <div className="flex justify-end">
+                  <span className={`text-xs tabular-nums ${draftWordCount > wordLimit ? "text-destructive" : "text-muted-foreground"}`}>
+                    {draftWordCount}/{wordLimit} words
+                  </span>
                 </div>
-
-                <div className="flex items-center gap-3">
-                  {/* Turn timer */}
-                  {timeLeft !== null && (
-                    <span className={`flex items-center gap-1 font-mono text-sm font-semibold tabular-nums ${timeLeft <= 10 ? "text-destructive" : "text-muted-foreground"}`}>
-                      <Clock className="h-3.5 w-3.5" />
-                      {timeLeft}s
-                    </span>
-                  )}
-                  {/* Draft token estimate */}
-                  {isMyTurn && draft.length > 0 && (
-                    <span className={`text-xs tabular-nums ${draftTokenEstimate > tokenLimit ? "text-destructive" : "text-muted-foreground"}`}>
-                      ~{draftTokenEstimate}/{tokenLimit} tok
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Input row */}
+              )}
               <div className="flex gap-2">
                 <textarea
                   ref={textareaRef}
                   rows={2}
-                  placeholder={isMyTurn ? "Make your argument…" : `Waiting for ${currentTurnPlayer?.user.username ?? "opponent"}…`}
-                  disabled={!isMyTurn || sending}
+                  placeholder="Make your argument…"
+                  disabled={sending}
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
+                  onChange={(e) => updateDraft(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -583,7 +535,7 @@ export function DisputeRoom({
                   <Button
                     size="sm"
                     className="h-9 px-3 gap-1.5"
-                    disabled={!isMyTurn || !draft.trim() || sending || draftTokenEstimate > tokenLimit}
+                    disabled={!draft.trim() || sending || draftWordCount > wordLimit}
                     onClick={sendMessage}
                   >
                     <Send className="h-3.5 w-3.5" />
@@ -593,23 +545,21 @@ export function DisputeRoom({
                     size="sm"
                     variant="ghost"
                     className="h-9 px-3 gap-1.5 text-muted-foreground"
-                    disabled={!isMyTurn}
                     onClick={passTurn}
                   >
                     <SkipForward className="h-3.5 w-3.5" />
-                    Pass
+                    Done
                   </Button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Spectator bar */}
           {!isPlayer && dispute.status === "IN_PROGRESS" && (
             <div className="border-t border-border/50 bg-card px-4 py-3">
               <p className="text-center text-xs text-muted-foreground flex items-center justify-center gap-1.5">
                 <Eye className="h-3.5 w-3.5" />
-                Spectating — {currentTurnPlayer?.user.username ?? "…"}'s turn
+                Spectating
               </p>
             </div>
           )}

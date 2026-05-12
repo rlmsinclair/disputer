@@ -12,28 +12,23 @@ export async function POST(
   const userId = session.user.id;
   const { id: lobbyId } = await params;
 
-  const invite = await prisma.lobbyInvite.findUnique({
-    where: { lobbyId_inviteeId: { lobbyId, inviteeId: userId } },
+  const lobby = await prisma.lobby.findUnique({
+    where: { id: lobbyId },
+    include: { players: true },
   });
-  if (!invite) return NextResponse.json({ error: "No invite found." }, { status: 403 });
 
-  const lobby = await prisma.lobby.findUnique({ where: { id: lobbyId } });
   if (!lobby || lobby.status !== "WAITING") {
     return NextResponse.json({ error: "Lobby is not accepting players." }, { status: 400 });
   }
 
-  const alreadyJoined = await prisma.lobbyPlayer.findUnique({
-    where: { lobbyId_userId: { lobbyId, userId } },
-  });
+  const alreadyJoined = lobby.players.some((p) => p.userId === userId);
   if (alreadyJoined) return NextResponse.json({ ok: true });
 
-  await prisma.$transaction([
-    prisma.lobbyPlayer.create({ data: { lobbyId, userId } }),
-    prisma.lobbyInvite.update({
-      where: { lobbyId_inviteeId: { lobbyId, inviteeId: userId } },
-      data: { accepted: true },
-    }),
-  ]);
+  if (lobby.players.length >= 2) {
+    return NextResponse.json({ error: "Lobby is full." }, { status: 400 });
+  }
+
+  await prisma.lobbyPlayer.create({ data: { lobbyId, userId } });
 
   return NextResponse.json({ ok: true });
 }

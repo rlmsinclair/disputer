@@ -5,17 +5,17 @@ const PAGE_SIZE = 20;
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
-  const tab = searchParams.get("tab") === "wins" ? "wins" : "tokens";
+  const tab = searchParams.get("tab") === "wins" ? "wins" : "elo";
   const page = Math.max(0, parseInt(searchParams.get("page") ?? "0"));
   const skip = page * PAGE_SIZE;
 
-  if (tab === "tokens") {
+  if (tab === "elo") {
     const [users, total] = await Promise.all([
       prisma.user.findMany({
-        orderBy: [{ tokenBalance: "desc" }, { username: "asc" }],
+        orderBy: [{ elo: "desc" }, { username: "asc" }],
         skip,
         take: PAGE_SIZE,
-        select: { id: true, username: true, tokenBalance: true },
+        select: { id: true, username: true, elo: true },
       }),
       prisma.user.count(),
     ]);
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
         rank: skip + i + 1,
         userId: u.id,
         username: u.username,
-        value: u.tokenBalance,
+        value: u.elo,
       })),
       total,
       hasMore: skip + PAGE_SIZE < total,
@@ -33,7 +33,6 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Wins tab — count public dispute wins via raw query
   const rows = await prisma.$queryRawUnsafe<
     { userId: string; username: string; wins: number }[]
   >(

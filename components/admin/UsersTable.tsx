@@ -12,7 +12,7 @@ type AdminUser = {
   id: string;
   username: string;
   email: string;
-  tokenBalance: number;
+  elo: number;
   role: string;
   isBanned: boolean;
   createdAt: string;
@@ -32,7 +32,7 @@ export function UsersTable({ initialUsers, initialTotal }: Props) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   // inline token edit state
   const [editingTokens, setEditingTokens] = useState<string | null>(null);
-  const [tokenDeltaInput, setTokenDeltaInput] = useState("");
+  const [eloDeltaInput, setTokenDeltaInput] = useState("");
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const search = useCallback(async (q: string) => {
@@ -84,15 +84,15 @@ export function UsersTable({ initialUsers, initialTotal }: Props) {
   }
 
   async function adjustTokens(user: AdminUser) {
-    const delta = parseInt(tokenDeltaInput);
+    const delta = parseInt(eloDeltaInput);
     if (isNaN(delta) || delta === 0) {
       toast.error("Enter a non-zero number.");
       return;
     }
-    const updated = await patchUser(user.id, { tokenDelta: delta });
+    const updated = await patchUser(user.id, { eloDelta: delta });
     if (!updated) return;
-    setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, tokenBalance: updated.tokenBalance } : u));
-    toast.success(`Tokens adjusted. New balance: ${updated.tokenBalance}`);
+    setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, elo: updated.elo } : u));
+    toast.success(`Tokens adjusted. New balance: ${updated.elo}`);
     setEditingTokens(null);
     setTokenDeltaInput("");
   }
@@ -117,7 +117,7 @@ export function UsersTable({ initialUsers, initialTotal }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border/50 bg-secondary/30">
-              {["Username", "Email", "Tokens", "Disputes", "Role", "Status", "Joined", "Actions"].map((h) => (
+              {["Username", "Email", "ELO", "Disputes", "Role", "Status", "Joined", "Actions"].map((h) => (
                 <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
                   {h}
                 </th>
@@ -141,7 +141,7 @@ export function UsersTable({ initialUsers, initialTotal }: Props) {
                       <Input
                         className="h-7 w-20 text-xs px-2 bg-input/50"
                         placeholder="+/-"
-                        value={tokenDeltaInput}
+                        value={eloDeltaInput}
                         onChange={(e) => setTokenDeltaInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") adjustTokens(u); if (e.key === "Escape") setEditingTokens(null); }}
                         autoFocus
@@ -159,7 +159,7 @@ export function UsersTable({ initialUsers, initialTotal }: Props) {
                       onClick={() => { setEditingTokens(u.id); setTokenDeltaInput(""); }}
                       title="Click to adjust"
                     >
-                      {u.tokenBalance.toLocaleString()}
+                      {u.elo.toLocaleString()}
                     </button>
                   )}
                 </td>

@@ -20,8 +20,7 @@ app.prepare().then(() => {
     cors: {
       origin: [
         "http://localhost:3000",
-        "https://disputer.xyz",
-        "https://www.disputer.xyz",
+        ...(process.env.NEXT_PUBLIC_APP_URL ? [process.env.NEXT_PUBLIC_APP_URL] : []),
       ],
       methods: ["GET", "POST"],
       credentials: true,

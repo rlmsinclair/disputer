@@ -1,12 +1,10 @@
 import { Server, Socket } from "socket.io";
 import { prisma } from "@/lib/prisma";
 import { judgeDispute } from "@/lib/claude";
-import { settleDispute } from "@/lib/settlement";
-import { sendTurnNotification } from "@/lib/push";
-import { countTokens } from "@/lib/tokenizer";
+import { calculateElo } from "@/lib/elo";
+import { countWords } from "@/lib/wordcount";
 
-const turnTimers = new Map<string, NodeJS.Timeout>();
-const turnState = new Map<string, { position: number; passCount: number; expiresAt: number }>();
+const passedUsers = new Map<string, Set<string>>();
 
 const disputeInclude = {
   players: {
@@ -21,10 +19,9 @@ const disputeInclude = {
   lobby: {
     select: {
       topic: true,
-      timeLimitSeconds: true,
       maxMessageTimeSeconds: true,
-      messageTokenLimit: true,
-      totalTokenLimit: true,
+      messageWordLimit: true,
+      totalWordLimit: true,
     },
   },
 };
@@ -44,11 +41,10 @@ export function registerDisputeHandlers(io: Server, socket: Socket) {
       include: disputeInclude,
     });
 
-    const state = turnState.get(disputeId);
     socket.emit("dispute:state", {
       ...dispute,
-      currentTurnUserId: state ? getCurrentTurnUserId(dispute?.players ?? [], state.position) : null,
-      turnExpiresAt: state?.expiresAt ?? null,
+      currentTurnUserId: null,
+      turnExpiresAt: null,
     });
   });
 
@@ -65,69 +61,60 @@ export function registerDisputeHandlers(io: Server, socket: Socket) {
     });
     if (!dispute || dispute.status !== "IN_PROGRESS") return;
 
-    const state = turnState.get(disputeId);
-    if (!state) return;
-
-    const activePlayers = dispute.players.filter((p) => p.isActive);
-    const currentPlayer = activePlayers[state.position % activePlayers.length];
-    if (!currentPlayer || currentPlayer.userId !== userId) {
-      socket.emit("dispute:error", { message: "It is not your turn." });
+    const isActivePlayer = dispute.players.some((p) => p.userId === userId && p.isActive);
+    if (!isActivePlayer) {
+      socket.emit("dispute:error", { message: "You are not an active player." });
       return;
     }
 
-    const tokenCount = countTokens(content);
-    if (tokenCount > (dispute.lobby.messageTokenLimit ?? Infinity)) {
-      socket.emit("dispute:error", { message: `Message exceeds the ${dispute.lobby.messageTokenLimit}-token limit.` });
+    const wordCount = countWords(content);
+    if (wordCount > dispute.lobby.messageWordLimit) {
+      socket.emit("dispute:error", { message: `Message exceeds the ${dispute.lobby.messageWordLimit}-word limit.` });
       return;
     }
 
-    const totalUsed = dispute.tokensUsed + tokenCount;
-    if (totalUsed > (dispute.lobby.totalTokenLimit ?? Infinity)) {
-      socket.emit("dispute:error", { message: "Total token budget exhausted." });
+    const totalUsed = dispute.wordsUsed + wordCount;
+    if (totalUsed > dispute.lobby.totalWordLimit) {
+      socket.emit("dispute:error", { message: "Total word budget exhausted." });
       return;
     }
 
     const turnNumber = await prisma.message.count({ where: { disputeId } });
     const message = await prisma.message.create({
-      data: { disputeId, userId, content, tokenCount, turnNumber: turnNumber + 1 },
+      data: { disputeId, userId, content, wordCount, turnNumber: turnNumber + 1 },
       include: { user: { select: { id: true, username: true } } },
     });
 
-    await prisma.dispute.update({ where: { id: disputeId }, data: { tokensUsed: totalUsed } });
+    await prisma.dispute.update({ where: { id: disputeId }, data: { wordsUsed: totalUsed } });
 
     io.to(`dispute:${disputeId}`).emit("dispute:new_message", {
       message,
-      tokensUsed: totalUsed,
-      tokensRemaining: (dispute.lobby.totalTokenLimit ?? 0) - totalUsed,
+      wordsUsed: totalUsed,
+      wordsRemaining: dispute.lobby.totalWordLimit - totalUsed,
     });
 
-    clearTurnTimer(disputeId);
-    state.passCount = 0;
-    advanceTurn(io, disputeId, activePlayers.length, dispute.lobby.maxMessageTimeSeconds ?? 60);
+    // Sending a message un-passes this player
+    passedUsers.get(disputeId)?.delete(userId);
   });
 
   socket.on("dispute:pass", async ({ disputeId, userId }: { disputeId: string; userId: string }) => {
     const dispute = await prisma.dispute.findUnique({
       where: { id: disputeId },
-      include: { players: { orderBy: { circlePosition: "asc" } }, lobby: true },
+      include: { players: { orderBy: { circlePosition: "asc" } } },
     });
     if (!dispute || dispute.status !== "IN_PROGRESS") return;
 
-    const state = turnState.get(disputeId);
-    if (!state) return;
-
     const activePlayers = dispute.players.filter((p) => p.isActive);
-    const currentPlayer = activePlayers[state.position % activePlayers.length];
-    if (!currentPlayer || currentPlayer.userId !== userId) return;
+    if (!activePlayers.some((p) => p.userId === userId)) return;
 
-    state.passCount += 1;
+    const passed = passedUsers.get(disputeId);
+    if (!passed) return;
+
+    passed.add(userId);
     io.to(`dispute:${disputeId}`).emit("dispute:player_passed", { userId });
 
-    if (state.passCount >= activePlayers.length) {
+    if (passed.size >= activePlayers.length) {
       await endDispute(io, disputeId);
-    } else {
-      clearTurnTimer(disputeId);
-      advanceTurn(io, disputeId, activePlayers.length, dispute.lobby.maxMessageTimeSeconds ?? 60);
     }
   });
 
@@ -140,6 +127,14 @@ export function registerDisputeHandlers(io: Server, socket: Socket) {
     socket.data.userId = userId;
     socket.data.disputeId = disputeId;
     io.to(`dispute:${disputeId}`).emit("dispute:player_rejoined", { userId });
+  });
+
+  socket.on("dispute:typing", ({ disputeId, userId, content }: {
+    disputeId: string;
+    userId: string;
+    content: string;
+  }) => {
+    socket.to(`dispute:${disputeId}`).emit("dispute:typing", { userId, content });
   });
 
   socket.on("dispute:toggle_private", async ({ disputeId, userId, isPrivate }: {
@@ -170,118 +165,19 @@ export function registerDisputeHandlers(io: Server, socket: Socket) {
   });
 }
 
-function getCurrentTurnUserId(
-  players: { userId: string; isActive: boolean; circlePosition: number }[],
-  position: number
-): string | null {
-  const active = [...players]
-    .filter((p) => p.isActive)
-    .sort((a, b) => a.circlePosition - b.circlePosition);
-  return active[position % active.length]?.userId ?? null;
-}
-
-function advanceTurn(io: Server, disputeId: string, activeCount: number, maxSeconds: number) {
-  const state = turnState.get(disputeId);
-  if (!state) return;
-  state.position = (state.position + 1) % activeCount;
-
-  const expiresAt = Date.now() + maxSeconds * 1000;
-  state.expiresAt = expiresAt;
-
-  emitCurrentTurn(io, disputeId, expiresAt);
-
-  const timer = setTimeout(async () => {
-    const dispute = await prisma.dispute.findUnique({
-      where: { id: disputeId },
-      include: { players: { orderBy: { circlePosition: "asc" } } },
-    });
-    if (!dispute || dispute.status !== "IN_PROGRESS") return;
-
-    const activePlayers = dispute.players.filter((p) => p.isActive);
-    const timedOutPlayer = activePlayers[state.position % activePlayers.length];
-    if (!timedOutPlayer) return;
-
-    io.to(`dispute:${disputeId}`).emit("dispute:turn_timeout", { userId: timedOutPlayer.userId });
-
-    await prisma.disputePlayer.update({
-      where: { disputeId_userId: { disputeId, userId: timedOutPlayer.userId } },
-      data: { isActive: false },
-    });
-
-    const remaining = activePlayers.filter((p) => p.userId !== timedOutPlayer.userId);
-    if (remaining.length < 1) {
-      await endDispute(io, disputeId);
-    } else {
-      advanceTurn(io, disputeId, remaining.length, maxSeconds);
-    }
-  }, maxSeconds * 1000);
-
-  turnTimers.set(disputeId, timer);
-  emitTurnNotification(io, disputeId, state.position);
-}
-
-async function emitCurrentTurn(io: Server, disputeId: string, expiresAt: number) {
-  const state = turnState.get(disputeId);
-  if (!state) return;
-
-  const dispute = await prisma.dispute.findUnique({
-    where: { id: disputeId },
-    include: { players: { where: { isActive: true }, orderBy: { circlePosition: "asc" } } },
-  });
-  if (!dispute) return;
-
-  const currentPlayer = dispute.players[state.position % dispute.players.length];
-  if (!currentPlayer) return;
-
-  io.to(`dispute:${disputeId}`).emit("dispute:turn", {
-    userId: currentPlayer.userId,
-    expiresAt,
-  });
-}
-
-async function emitTurnNotification(io: Server, disputeId: string, position: number) {
-  const dispute = await prisma.dispute.findUnique({
-    where: { id: disputeId },
-    include: { players: { where: { isActive: true }, orderBy: { circlePosition: "asc" } } },
-  });
-  if (!dispute) return;
-
-  const currentPlayer = dispute.players[position % dispute.players.length];
-  if (!currentPlayer) return;
-
-  await sendTurnNotification(currentPlayer.userId, disputeId);
-}
-
-function clearTurnTimer(disputeId: string) {
-  const t = turnTimers.get(disputeId);
-  if (t) { clearTimeout(t); turnTimers.delete(disputeId); }
-}
-
 export async function startDispute(io: Server, lobbyId: string) {
   const lobby = await prisma.lobby.findUnique({
     where: { id: lobbyId },
     include: { players: true },
   });
   if (!lobby) return null;
-
   if (lobby.status !== "WAITING") return null;
 
-  const missingBet = lobby.players.find((p) => p.betAmount == null);
-  if (missingBet) throw new Error(`Player ${missingBet.userId} has no bet amount`);
-
-  // Atomic status change — prevents double-start on simultaneous ready clicks
   const { count } = await prisma.lobby.updateMany({
     where: { id: lobbyId, status: "WAITING" },
     data: { status: "IN_PROGRESS" },
   });
   if (count === 0) return null;
-
-  for (const player of lobby.players) {
-    await prisma.user.update({
-      where: { id: player.userId },
-      data: { tokenBalance: { decrement: player.betAmount! } },
-    });
-  }
 
   const dispute = await prisma.dispute.create({
     data: {
@@ -289,32 +185,19 @@ export async function startDispute(io: Server, lobbyId: string) {
       players: {
         create: lobby.players.map((p, index) => ({
           userId: p.userId,
-          betAmount: p.betAmount!,
           circlePosition: index,
         })),
       },
     },
   });
 
-  if (lobby.messageTokenLimit == null || lobby.totalTokenLimit == null) {
-    await prisma.lobby.update({
-      where: { id: lobbyId },
-      data: {
-        messageTokenLimit: lobby.messageTokenLimit ?? 500,
-        totalTokenLimit: lobby.totalTokenLimit ?? 50000,
-      },
-    });
-  }
-
-  turnState.set(dispute.id, { position: -1, passCount: 0, expiresAt: 0 });
-  advanceTurn(io, dispute.id, lobby.players.length, lobby.maxMessageTimeSeconds ?? 60);
+  passedUsers.set(dispute.id, new Set());
 
   return dispute.id;
 }
 
 export async function endDispute(io: Server, disputeId: string) {
-  clearTurnTimer(disputeId);
-  turnState.delete(disputeId);
+  passedUsers.delete(disputeId);
 
   await prisma.dispute.update({ where: { id: disputeId }, data: { status: "JUDGING", endedAt: new Date() } });
   io.to(`dispute:${disputeId}`).emit("dispute:judging");
@@ -326,10 +209,9 @@ export async function endDispute(io: Server, disputeId: string) {
       break;
     } catch {
       if (attempt === 2) {
-        await refundBets(disputeId);
         await prisma.dispute.update({ where: { id: disputeId }, data: { status: "CANCELLED" } });
         io.to(`dispute:${disputeId}`).emit("dispute:error", {
-          message: "Judging failed after 3 attempts. All bets have been refunded.",
+          message: "Judging failed after 3 attempts. No ELO changes.",
         });
         return;
       }
@@ -337,33 +219,88 @@ export async function endDispute(io: Server, disputeId: string) {
   }
 
   if (!result) return;
-  await settleDispute(disputeId, result.winnerIds, result.reason, result.claudeResponse);
 
-  // Fetch per-player outcomes to send to clients
+  await applyEloAndSettle(disputeId, result.winnerIds, result.reason, result.claudeResponse, io);
+}
+
+async function applyEloAndSettle(
+  disputeId: string,
+  winnerIds: string[],
+  reason: string,
+  claudeResponse: string,
+  io: Server
+) {
   const players = await prisma.disputePlayer.findMany({
     where: { disputeId },
-    include: { user: { select: { username: true } } },
+    include: { user: { select: { id: true, username: true, elo: true } } },
+  });
+
+  const winners = players.filter((p) => winnerIds.includes(p.userId));
+  const losers = players.filter((p) => !winnerIds.includes(p.userId));
+
+  await prisma.$transaction(async (tx) => {
+    await tx.disputeResult.create({
+      data: { disputeId, claudeResponse, winnerIds, reason },
+    });
+
+    for (const winner of winners) {
+      for (const loser of losers) {
+        const { winnerDelta, loserDelta } = calculateElo(winner.user.elo, loser.user.elo);
+
+        await tx.disputePlayer.update({
+          where: { disputeId_userId: { disputeId, userId: winner.userId } },
+          data: { eloChange: { increment: winnerDelta } },
+        });
+        await tx.user.update({
+          where: { id: winner.userId },
+          data: { elo: { increment: winnerDelta } },
+        });
+
+        await tx.disputePlayer.update({
+          where: { disputeId_userId: { disputeId, userId: loser.userId } },
+          data: { eloChange: { increment: loserDelta } },
+        });
+        await tx.user.update({
+          where: { id: loser.userId },
+          data: { elo: { increment: loserDelta } },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: winner.userId,
+            type: "DISPUTE_RESULT",
+            payload: { disputeId, outcome: "won", eloChange: winnerDelta, reason },
+          },
+        });
+        await tx.notification.create({
+          data: {
+            userId: loser.userId,
+            type: "DISPUTE_RESULT",
+            payload: { disputeId, outcome: "lost", eloChange: loserDelta, reason },
+          },
+        });
+      }
+    }
+
+    await tx.dispute.update({
+      where: { id: disputeId },
+      data: { status: "COMPLETED" },
+    });
+  });
+
+  const updatedPlayers = await prisma.disputePlayer.findMany({
+    where: { disputeId },
+    include: { user: { select: { id: true, username: true, elo: true } } },
   });
 
   io.to(`dispute:${disputeId}`).emit("dispute:result", {
-    winnerIds: result.winnerIds,
-    reason: result.reason,
-    players: players.map((p) => ({
+    winnerIds,
+    reason,
+    players: updatedPlayers.map((p) => ({
       userId: p.userId,
       username: p.user.username,
-      tokensWon: p.tokensWon,
-      tokensLost: p.tokensLost,
-      betAmount: p.betAmount,
+      eloChange: p.eloChange,
+      newElo: p.user.elo,
     })),
   });
-}
-
-async function refundBets(disputeId: string) {
-  const players = await prisma.disputePlayer.findMany({ where: { disputeId } });
-  for (const player of players) {
-    await prisma.user.update({
-      where: { id: player.userId },
-      data: { tokenBalance: { increment: player.betAmount } },
-    });
-  }
 }

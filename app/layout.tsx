@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dispute",
-  description: "Argue. Wager. Win.",
+  title: "Objection",
+  description: "Challenge anyone to a real-time debate and let AI decide who won.",
 };
 
 export default function RootLayout({

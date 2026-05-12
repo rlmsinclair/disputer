@@ -8,30 +8,20 @@ export async function GET() {
 
   const userId = session.user.id;
 
-  const [lobbies, invites] = await Promise.all([
-    prisma.lobby.findMany({
-      where: {
-        status: { in: ["WAITING", "IN_PROGRESS"] },
-        players: { some: { userId } },
+  const lobbies = await prisma.lobby.findMany({
+    where: {
+      status: { in: ["WAITING", "IN_PROGRESS"] },
+      players: { some: { userId } },
+    },
+    include: {
+      players: {
+        select: { userId: true, user: { select: { username: true } } },
       },
-      include: {
-        players: {
-          select: { userId: true, user: { select: { username: true } } },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.lobbyInvite.findMany({
-      where: { inviteeId: userId, accepted: null },
-      include: {
-        lobby: { select: { id: true, topic: true, status: true } },
-        inviter: { select: { username: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
-  return NextResponse.json({ lobbies, invites });
+  return NextResponse.json({ lobbies });
 }
 
 export async function POST() {

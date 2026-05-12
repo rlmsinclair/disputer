@@ -19,7 +19,7 @@ type PageData = {
 };
 
 interface Props {
-  initialTokensData: PageData;
+  initialEloData: PageData;
   initialWinsData: PageData;
 }
 
@@ -40,7 +40,7 @@ function LeaderboardTab({
   valueLabel,
   valueSuffix,
 }: {
-  tab: "tokens" | "wins";
+  tab: "elo" | "wins";
   initial: PageData;
   valueLabel: string;
   valueSuffix: string;
@@ -77,7 +77,6 @@ function LeaderboardTab({
 
   return (
     <div className="space-y-1">
-      {/* Column headers */}
       <div className="flex items-center gap-3 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <span className="w-6 text-center">Rank</span>
         <span className="flex-1">Player</span>
@@ -89,21 +88,17 @@ function LeaderboardTab({
           No data yet
         </div>
       ) : (
-        users.map((u, i) => {
+        users.map((u) => {
           const isTop3 = u.rank <= 3;
           return (
             <Link key={u.userId} href={`/profile/${u.username}`}>
               <div
-                className={`flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-secondary/50 ${
-                  isTop3 ? "border border-border/30 bg-secondary/20" : ""
-                }`}
+                className={`flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-secondary/50 ${isTop3 ? "border border-border/30 bg-secondary/20" : ""}`}
               >
-                {/* Rank */}
                 <div className="w-6 flex justify-center shrink-0">
                   <RankBadge rank={u.rank} />
                 </div>
 
-                {/* Avatar + username */}
                 <div className="flex items-center gap-2.5 flex-1 min-w-0">
                   <div
                     className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold border shrink-0 ${
@@ -123,7 +118,6 @@ function LeaderboardTab({
                   </span>
                 </div>
 
-                {/* Value */}
                 <span className={`font-mono font-bold tabular-nums shrink-0 ${isTop3 ? "text-primary" : "text-muted-foreground"}`}>
                   {u.value.toLocaleString()}
                   <span className="text-[10px] font-normal ml-1 text-muted-foreground">
@@ -136,7 +130,6 @@ function LeaderboardTab({
         })
       )}
 
-      {/* Sentinel for infinite scroll */}
       <div ref={sentinelRef} className="h-4" />
 
       {loading && (
@@ -148,20 +141,20 @@ function LeaderboardTab({
   );
 }
 
-export function LeaderboardList({ initialTokensData, initialWinsData }: Props) {
+export function LeaderboardList({ initialEloData, initialWinsData }: Props) {
   return (
-    <Tabs defaultValue="tokens">
+    <Tabs defaultValue="elo">
       <TabsList className="grid w-full max-w-xs grid-cols-2 mb-6">
-        <TabsTrigger value="tokens">By Tokens</TabsTrigger>
+        <TabsTrigger value="elo">By ELO</TabsTrigger>
         <TabsTrigger value="wins">By Wins</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="tokens">
+      <TabsContent value="elo">
         <LeaderboardTab
-          tab="tokens"
-          initial={initialTokensData}
-          valueLabel="Tokens"
-          valueSuffix="tok"
+          tab="elo"
+          initial={initialEloData}
+          valueLabel="ELO"
+          valueSuffix="elo"
         />
       </TabsContent>
 

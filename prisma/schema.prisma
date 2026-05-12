@@ -28,7 +28,6 @@ enum ReportStatus {
 }
 
 enum NotificationType {
-  INVITE
   DISPUTE_RESULT
   REMATCH_REQUEST
 }
@@ -38,7 +37,7 @@ model User {
   email        String   @unique
   username     String   @unique
   passwordHash String
-  tokenBalance Int      @default(100)
+  elo          Int      @default(1200)
   role         String   @default("user")
   isBanned     Boolean  @default(false)
   createdAt    DateTime @default(now())
@@ -47,10 +46,7 @@ model User {
   lobbyPlayers      LobbyPlayer[]
   disputePlayers    DisputePlayer[]
   messages          Message[]
-  sentInvites       LobbyInvite[]      @relation("SentInvites")
-  receivedInvites   LobbyInvite[]      @relation("ReceivedInvites")
   notifications     Notification[]
-  dailyRewards      DailyLoginReward[]
   reportsFiled      Report[]           @relation("ReportsFiled")
   reportsReceived   Report[]           @relation("ReportsReceived")
   pushSubscriptions PushSubscription[]
@@ -61,33 +57,22 @@ model Lobby {
   creatorId             String
   status                LobbyStatus @default(WAITING)
   topic                 String?
-  timeLimitSeconds      Int?
-  maxMessageTimeSeconds Int?
-  messageTokenLimit     Int?
-  totalTokenLimit       Int?
+  maxMessageTimeSeconds Int         @default(60)
+  messageWordLimit      Int         @default(200)
+  totalWordLimit        Int         @default(10000)
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
 
   players LobbyPlayer[]
-  invites LobbyInvite[]
   dispute Dispute?
 }
 
 model LobbyPlayer {
-  id                        String   @id @default(cuid())
-  lobbyId                   String
-  userId                    String
-  betAmount                 Int?
-  isReady                   Boolean  @default(false)
-  circlePosition            Int?
-  proposedMessageTokenLimit Int?
-  proposedTotalTokenLimit   Int?
-  proposedMaxMessageTime    Int?
-  topicConfirmed            Boolean  @default(false)
-  timeLimitConfirmed        Boolean  @default(false)
-  maxMessageTimeConfirmed   Boolean  @default(false)
-  betConfirmed              Boolean  @default(false)
-  joinedAt                  DateTime @default(now())
+  id       String   @id @default(cuid())
+  lobbyId  String
+  userId   String
+  isReady  Boolean  @default(false)
+  joinedAt DateTime @default(now())
 
   lobby Lobby @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id])
@@ -95,46 +80,29 @@ model LobbyPlayer {
   @@unique([lobbyId, userId])
 }
 
-model LobbyInvite {
-  id        String   @id @default(cuid())
-  lobbyId   String
-  inviterId String
-  inviteeId String
-  accepted  Boolean?
-  createdAt DateTime @default(now())
-
-  lobby   Lobby @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
-  inviter User  @relation("SentInvites", fields: [inviterId], references: [id])
-  invitee User  @relation("ReceivedInvites", fields: [inviteeId], references: [id])
-
-  @@unique([lobbyId, inviteeId])
-}
-
 model Dispute {
-  id         String        @id @default(cuid())
-  lobbyId    String        @unique
-  status     DisputeStatus @default(IN_PROGRESS)
-  startedAt  DateTime      @default(now())
-  endedAt    DateTime?
-  tokensUsed Int           @default(0)
-  isPrivate  Boolean       @default(false)
+  id        String        @id @default(cuid())
+  lobbyId   String        @unique
+  status    DisputeStatus @default(IN_PROGRESS)
+  startedAt DateTime      @default(now())
+  endedAt   DateTime?
+  wordsUsed Int           @default(0)
+  isPrivate Boolean       @default(false)
 
-  lobby   Lobby           @relation(fields: [lobbyId], references: [id])
-  players DisputePlayer[]
+  lobby    Lobby           @relation(fields: [lobbyId], references: [id])
+  players  DisputePlayer[]
   messages Message[]
-  result  DisputeResult?
-  reports Report[]
+  result   DisputeResult?
+  reports  Report[]
 }
 
 model DisputePlayer {
   id             String  @id @default(cuid())
   disputeId      String
   userId         String
-  betAmount      Int
   circlePosition Int
   isActive       Boolean @default(true)
-  tokensWon      Int     @default(0)
-  tokensLost     Int     @default(0)
+  eloChange      Int     @default(0)
 
   dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id])
@@ -147,7 +115,7 @@ model Message {
   disputeId  String
   userId     String
   content    String
-  tokenCount Int
+  wordCount  Int
   turnNumber Int
   createdAt  DateTime @default(now())
 
@@ -175,17 +143,6 @@ model Notification {
   createdAt DateTime         @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model DailyLoginReward {
-  id     String   @id @default(cuid())
-  userId String
-  date   DateTime @db.Date
-  tokens Int
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, date])
 }
 
 model Report {

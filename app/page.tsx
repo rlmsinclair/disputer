@@ -12,7 +12,7 @@ export default async function RootPage() {
     <div className="flex min-h-screen flex-col bg-background">
       {/* Nav */}
       <header className="flex h-14 items-center justify-between px-6 border-b border-border/50">
-        <span className="text-xl font-black tracking-tighter">DISPUTE</span>
+        <span className="text-xl font-black tracking-tighter">OBJECTION</span>
         <div className="flex items-center gap-2">
           <Link href="/login">
             <Button variant="ghost" size="sm">Sign in</Button>
@@ -27,20 +27,20 @@ export default async function RootPage() {
       <main className="flex flex-1 flex-col items-center justify-center text-center px-4 gap-10">
         <div className="space-y-4 max-w-2xl">
           <h1 className="text-6xl sm:text-7xl font-black tracking-tighter leading-none">
-            DISPUTE
+            OBJECTION
           </h1>
           <p className="text-xl text-muted-foreground font-medium">
-            Argue. Wager. Win.
+            Argue. Debate. Win.
           </p>
           <p className="text-muted-foreground max-w-md mx-auto">
-            Challenge anyone to a real-time debate, back yourself with tokens, and let AI decide who won.
+            Challenge anyone to a real-time debate and let AI decide who won.
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
           <Link href="/register">
             <Button size="lg" className="px-10 text-base font-bold h-12">
-              Start disputing
+              Start debating
             </Button>
           </Link>
           <Link href="/login">
@@ -54,7 +54,7 @@ export default async function RootPage() {
         <div className="flex flex-wrap justify-center gap-3 text-sm">
           {[
             { icon: Swords, label: "Real-time debates" },
-            { icon: Trophy, label: "Token wagering" },
+            { icon: Trophy, label: "ELO rankings" },
             { icon: Zap, label: "AI judging" },
           ].map(({ icon: Icon, label }) => (
             <div
@@ -69,7 +69,7 @@ export default async function RootPage() {
       </main>
 
       <footer className="py-6 text-center text-xs text-muted-foreground border-t border-border/50">
-        disputer.xyz
+        objection.wtf
       </footer>
     </div>
   );

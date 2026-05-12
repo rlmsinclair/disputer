@@ -17,21 +17,9 @@ export async function GET(
       players: {
         select: {
           userId: true,
-          betAmount: true,
-          isReady: true,
-          circlePosition: true,
-          topicConfirmed: true,
-          timeLimitConfirmed: true,
-          maxMessageTimeConfirmed: true,
-          betConfirmed: true,
-          proposedMessageTokenLimit: true,
-          proposedTotalTokenLimit: true,
-          user: { select: { username: true, tokenBalance: true } },
+          joinedAt: true,
+          user: { select: { username: true, elo: true } },
         },
-      },
-      invites: {
-        where: { accepted: null },
-        select: { inviteeId: true, invitee: { select: { username: true } } },
       },
       dispute: { select: { id: true } },
     },

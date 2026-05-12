@@ -15,11 +15,11 @@ import {
 
 interface NavbarProps {
   username: string;
-  tokenBalance: number;
+  elo: number;
   unreadNotifications: number;
 }
 
-export function Navbar({ username, tokenBalance, unreadNotifications }: NavbarProps) {
+export function Navbar({ username, elo = 1200, unreadNotifications = 0 }: NavbarProps) {
   const router = useRouter();
 
   return (
@@ -29,13 +29,13 @@ export function Navbar({ username, tokenBalance, unreadNotifications }: NavbarPr
           href="/lobby"
           className="text-xl font-black tracking-tighter text-foreground hover:text-primary transition-colors"
         >
-          DISPUTE
+          OBJECTION
         </Link>
 
         <div className="flex items-center gap-3">
           <span className="hidden sm:flex items-center gap-1.5 rounded-full border border-border/50 bg-secondary px-3 py-1 text-sm font-semibold tabular-nums">
-            <span className="text-primary">{tokenBalance.toLocaleString()}</span>
-            <span className="text-muted-foreground">tokens</span>
+            <span className="text-primary">{elo ?? 1200}</span>
+            <span className="text-muted-foreground">ELO</span>
           </span>
 
           <Link href="/leaderboard">

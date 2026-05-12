@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { Bell, Swords, Trophy } from "lucide-react";
+import { Bell, Trophy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default async function NotificationsPage() {
@@ -41,26 +41,9 @@ export default async function NotificationsPage() {
               month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
             });
 
-            if (n.type === "INVITE") {
-              return (
-                <Link key={n.id} href={`/lobby/${payload.lobbyId}`}>
-                  <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 hover:border-border transition-colors ${n.read ? "border-border/30 bg-card" : "border-primary/20 bg-primary/5"}`}>
-                    <Swords className="h-4 w-4 mt-0.5 text-primary shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">
-                        <span className="text-primary">{payload.inviterUsername as string}</span>
-                        {" "}invited you to a dispute
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{date}</p>
-                    </div>
-                    {!n.read && <span className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />}
-                  </div>
-                </Link>
-              );
-            }
-
             if (n.type === "DISPUTE_RESULT") {
               const won = payload.outcome === "won";
+              const eloChange = payload.eloChange as number;
               return (
                 <Link key={n.id} href={`/dispute/${payload.disputeId}`}>
                   <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 hover:border-border transition-colors ${n.read ? "border-border/30 bg-card" : won ? "border-green-500/20 bg-green-500/5" : "border-destructive/20 bg-destructive/5"}`}>
@@ -68,8 +51,8 @@ export default async function NotificationsPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">
                         Dispute {won ? "won" : "lost"}{" "}
-                        <Badge className={`text-[10px] px-1.5 py-0 ${won ? "bg-green-500/15 text-green-400 border-green-500/20" : "bg-destructive/15 text-destructive border-destructive/20"}`}>
-                          {won ? `+${payload.tokensWon as number}` : `-${payload.tokensLost as number}`} tokens
+                        <Badge className={`text-[10px] px-1.5 py-0 font-mono ${won ? "bg-green-500/15 text-green-400 border-green-500/20" : "bg-destructive/15 text-destructive border-destructive/20"}`}>
+                          {eloChange >= 0 ? `+${eloChange}` : `${eloChange}`} ELO
                         </Badge>
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">{date}</p>

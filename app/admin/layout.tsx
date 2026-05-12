@@ -25,7 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="mx-auto flex h-12 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <Link href="/lobby" className="text-lg font-black tracking-tighter hover:text-primary transition-colors">
-              DISPUTE
+              OBJECTION
             </Link>
             <span className="text-muted-foreground/40">/</span>
             <span className="text-sm font-semibold text-muted-foreground">Admin</span>

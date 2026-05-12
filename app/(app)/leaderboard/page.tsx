@@ -4,17 +4,17 @@ import { Trophy } from "lucide-react";
 
 const PAGE_SIZE = 20;
 
-async function getTokensPage() {
+async function getEloPage() {
   const [users, total] = await Promise.all([
     prisma.user.findMany({
-      orderBy: [{ tokenBalance: "desc" }, { username: "asc" }],
+      orderBy: [{ elo: "desc" }, { username: "asc" }],
       take: PAGE_SIZE,
-      select: { id: true, username: true, tokenBalance: true },
+      select: { id: true, username: true, elo: true },
     }),
     prisma.user.count(),
   ]);
   return {
-    users: users.map((u, i) => ({ rank: i + 1, userId: u.id, username: u.username, value: u.tokenBalance })),
+    users: users.map((u, i) => ({ rank: i + 1, userId: u.id, username: u.username, value: u.elo })),
     total,
     hasMore: PAGE_SIZE < total,
   };
@@ -57,7 +57,7 @@ async function getWinsPage() {
 }
 
 export default async function LeaderboardPage() {
-  const [tokensData, winsData] = await Promise.all([getTokensPage(), getWinsPage()]);
+  const [eloData, winsData] = await Promise.all([getEloPage(), getWinsPage()]);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 space-y-8">
@@ -72,7 +72,7 @@ export default async function LeaderboardPage() {
       </div>
 
       <LeaderboardList
-        initialTokensData={tokensData}
+        initialEloData={eloData}
         initialWinsData={winsData}
       />
     </div>

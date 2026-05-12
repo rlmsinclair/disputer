@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       take: PAGE_SIZE,
       select: {
         id: true, username: true, email: true,
-        tokenBalance: true, role: true, isBanned: true, createdAt: true,
+        elo: true, role: true, isBanned: true, createdAt: true,
         _count: { select: { disputePlayers: true } },
       },
     }),

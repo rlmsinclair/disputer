@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function RegisterPage() {
-  const router = useRouter();
+function RegisterForm() {
+  const searchParams = useSearchParams();
+  const raw = searchParams.get("callbackUrl") ?? "";
+  const callbackUrl = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/lobby";
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -49,10 +51,10 @@ export default function RegisterPage() {
 
     if (result?.error) {
       toast.error("Account created but sign-in failed. Please log in.");
-      router.push("/login");
+      window.location.href = `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`;
     } else {
-      toast.success("Welcome to Dispute!");
-      router.push("/lobby");
+      toast.success("Welcome to Objection!");
+      window.location.href = callbackUrl;
     }
   }
 
@@ -135,7 +137,7 @@ export default function RegisterPage() {
         <p className="text-sm text-muted-foreground">
           Already have an account?{" "}
           <Link
-            href="/login"
+            href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
             className="font-medium text-primary hover:underline"
           >
             Sign in
@@ -143,5 +145,13 @@ export default function RegisterPage() {
         </p>
       </CardFooter>
     </Card>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
   );
 }

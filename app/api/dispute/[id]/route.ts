@@ -26,10 +26,9 @@ export async function GET(
       lobby: {
         select: {
           topic: true,
-          timeLimitSeconds: true,
           maxMessageTimeSeconds: true,
-          messageTokenLimit: true,
-          totalTokenLimit: true,
+          messageWordLimit: true,
+          totalWordLimit: true,
         },
       },
     },
