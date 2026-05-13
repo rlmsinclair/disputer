@@ -124,11 +124,6 @@ export function DisputeRoom({
   const me = dispute.players.find((p) => p.userId === currentUserId);
   const iAmDisconnected = me && !me.isActive && dispute.status === "IN_PROGRESS";
 
-  const wordLimit = dispute.lobby.messageWordLimit ?? 200;
-  const totalLimit = dispute.lobby.totalWordLimit ?? 0;
-  const wordsRemaining = totalLimit - dispute.wordsUsed;
-  const wordProgress = totalLimit > 0 ? (dispute.wordsUsed / totalLimit) * 100 : 0;
-  const draftWordCount = draft.trim() ? draft.trim().split(/\s+/).filter(Boolean).length : 0;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -270,20 +265,6 @@ export function DisputeRoom({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {totalLimit > 0 && dispute.status === "IN_PROGRESS" && (
-            <div className="hidden sm:flex items-center gap-2">
-              <div className="w-24 h-1.5 rounded-full bg-secondary overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${wordProgress > 80 ? "bg-destructive" : "bg-primary"}`}
-                  style={{ width: `${Math.min(wordProgress, 100)}%` }}
-                />
-              </div>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {wordsRemaining.toLocaleString()} words left
-              </span>
-            </div>
-          )}
-
           {isPlayer && dispute.status !== "COMPLETED" && dispute.status !== "CANCELLED" && (
             <Button
               variant="ghost"
@@ -374,7 +355,7 @@ export function DisputeRoom({
                       <span className="text-sm font-semibold">{msg.user.username}</span>
                       {isMe && <span className="text-[10px] text-muted-foreground">(you)</span>}
                       <span className="text-[11px] text-muted-foreground ml-auto">
-                        #{msg.turnNumber} · {msg.wordCount}w
+                        #{msg.turnNumber}
                       </span>
                     </div>
                   )}
@@ -492,13 +473,6 @@ export function DisputeRoom({
           {/* ── Input ── */}
           {isPlayer && dispute.status === "IN_PROGRESS" && !iAmDisconnected && (
             <div className="border-t border-border/50 bg-card px-4 pt-3 pb-4 space-y-2 shrink-0">
-              {draft.length > 0 && (
-                <div className="flex justify-end">
-                  <span className={`text-xs tabular-nums ${draftWordCount > wordLimit ? "text-destructive" : "text-muted-foreground"}`}>
-                    {draftWordCount}/{wordLimit} words
-                  </span>
-                </div>
-              )}
               <div className="flex gap-2">
                 <textarea
                   ref={textareaRef}
@@ -519,7 +493,7 @@ export function DisputeRoom({
                   <Button
                     size="sm"
                     className="h-9 px-3 gap-1.5"
-                    disabled={!draft.trim() || sending || draftWordCount > wordLimit}
+                    disabled={!draft.trim() || sending}
                     onClick={sendMessage}
                   >
                     <Send className="h-3.5 w-3.5" />
