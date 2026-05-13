@@ -354,9 +354,6 @@ export function DisputeRoom({
                       </div>
                       <span className="text-sm font-semibold">{msg.user.username}</span>
                       {isMe && <span className="text-[10px] text-muted-foreground">(you)</span>}
-                      <span className="text-[11px] text-muted-foreground ml-auto">
-                        #{msg.turnNumber}
-                      </span>
                     </div>
                   )}
                   <div className={`ml-8 text-sm leading-relaxed ${isMe ? "text-foreground" : "text-foreground/85"}`}>
