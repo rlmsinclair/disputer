@@ -17,7 +17,7 @@ A real-time 1v1 debate platform where users argue a topic and have Claude judge 
 - **Prisma 7** + **PostgreSQL** — data layer with `@prisma/adapter-pg`
 - **Auth.js v5** — credentials-based auth with JWT sessions
 - **Anthropic SDK** — Claude judges disputes via the Messages API
-- **Web Push** — browser push notifications for dispute results
+- **Web Push** — push notification infrastructure (service worker, VAPID keys, subscription model; not yet wired to dispute events)
 - **Tailwind CSS v4** + **shadcn/ui** — UI components
 
 ## Project structure
@@ -125,11 +125,13 @@ Open [http://localhost:3000](http://localhost:3000).
 
 **Lobby chat** — players can chat in real-time before the dispute starts to agree on settings. Chat history is in-memory only and cleared when the dispute begins.
 
-**Word limits** — the host controls the per-message word limit (default 200) and total word limit (default 10,000). Limits apply to actual word count (whitespace-separated), not tokens. The host can adjust these in the lobby and changes propagate to the opponent immediately; once the opponent readies up, settings are locked.
+**Word limits** — the host controls three settings in the lobby: seconds per turn (default 60, range 10–300), per-message word limit (default 200), and total word limit (default 10,000). Word limits are enforced — messages exceeding the per-message limit are rejected, and the dispute ends when the total budget is exhausted. Limits apply to actual word count (whitespace-separated), not tokens. The host can adjust any setting before the opponent readies up; once the opponent readies up, settings are locked. Note: the seconds-per-turn setting is stored and shown in the lobby UI but is not currently enforced during disputes.
 
 **Live typing** — as a player types their argument, the draft appears letter-by-letter for their opponent, styled as a ghost message with a blinking cursor.
 
 **Free-form messaging** — both active players can post arguments at any time. There is no enforced turn order. The dispute ends when all active players pass or the total word budget is exhausted.
+
+**Disconnection and rejoin** — if a player disconnects mid-dispute they are marked inactive. They can rejoin at any time using the rejoin button; their messages resume counting toward the word budget. If all remaining active players pass, the dispute ends even if a disconnected player never rejoined.
 
 **Spectating** — any logged-in user can view a dispute in progress. They see messages and live drafts in real time but cannot interact.
 
