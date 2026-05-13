@@ -340,22 +340,6 @@ export function DisputeRoom({
             );
           })}
 
-          <Separator className="my-1" />
-
-          <div className="text-[11px] text-muted-foreground space-y-1">
-            {dispute.lobby.messageWordLimit && (
-              <div className="flex justify-between">
-                <span>Words/msg</span>
-                <span>{dispute.lobby.messageWordLimit}</span>
-              </div>
-            )}
-            {dispute.lobby.totalWordLimit && (
-              <div className="flex justify-between">
-                <span>Total words</span>
-                <span>{dispute.lobby.totalWordLimit.toLocaleString()}</span>
-              </div>
-            )}
-          </div>
         </aside>
 
         {/* ── Chat area ── */}

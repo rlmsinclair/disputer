@@ -101,9 +101,6 @@ export function LobbyRoom({ initialLobby, currentUserId, isPlayer }: Props) {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const [topicInput, setTopicInput] = useState(initialLobby.topic ?? "");
-  const [turnTimerInput, setTurnTimerInput] = useState(String(initialLobby.maxMessageTimeSeconds));
-  const [msgWordInput, setMsgWordInput] = useState(String(initialLobby.messageWordLimit));
-  const [totalWordInput, setTotalWordInput] = useState(String(initialLobby.totalWordLimit));
 
   const isCreator = lobby.creatorId === currentUserId;
   const opponent = lobby.players.find((p) => p.userId !== currentUserId);
@@ -120,10 +117,7 @@ export function LobbyRoom({ initialLobby, currentUserId, isPlayer }: Props) {
   // Sync inputs when settings change remotely
   useEffect(() => {
     setTopicInput(lobby.topic ?? "");
-    setTurnTimerInput(String(lobby.maxMessageTimeSeconds));
-    setMsgWordInput(String(lobby.messageWordLimit));
-    setTotalWordInput(String(lobby.totalWordLimit));
-  }, [lobby.topic, lobby.maxMessageTimeSeconds, lobby.messageWordLimit, lobby.totalWordLimit]);
+  }, [lobby.topic]);
 
   // ── Socket setup ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -372,64 +366,6 @@ export function LobbyRoom({ initialLobby, currentUserId, isPlayer }: Props) {
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                {/* Turn timer */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Seconds / turn</Label>
-                  {isCreator && !settingsLocked ? (
-                    <Input
-                      type="number" min={10} max={300}
-                      value={turnTimerInput}
-                      onChange={(e) => setTurnTimerInput(e.target.value)}
-                      onBlur={() => commitNumber("maxMessageTimeSeconds", turnTimerInput, 10, 300)}
-                      onKeyDown={(e) => e.key === "Enter" && commitNumber("maxMessageTimeSeconds", turnTimerInput, 10, 300)}
-                      className="bg-input/50 h-9 text-sm"
-                    />
-                  ) : (
-                    <div className="rounded-md border border-border/50 bg-secondary/30 px-3 py-2 text-sm">
-                      {lobby.maxMessageTimeSeconds}s
-                    </div>
-                  )}
-                </div>
-
-                {/* Per-message word limit */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Words / message</Label>
-                  {isCreator && !settingsLocked ? (
-                    <Input
-                      type="number" min={10} max={2000}
-                      value={msgWordInput}
-                      onChange={(e) => setMsgWordInput(e.target.value)}
-                      onBlur={() => commitNumber("messageWordLimit", msgWordInput, 10, 2000)}
-                      onKeyDown={(e) => e.key === "Enter" && commitNumber("messageWordLimit", msgWordInput, 10, 2000)}
-                      className="bg-input/50 h-9 text-sm"
-                    />
-                  ) : (
-                    <div className="rounded-md border border-border/50 bg-secondary/30 px-3 py-2 text-sm">
-                      {lobby.messageWordLimit}
-                    </div>
-                  )}
-                </div>
-
-                {/* Total word limit */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Total words</Label>
-                  {isCreator && !settingsLocked ? (
-                    <Input
-                      type="number" min={100}
-                      value={totalWordInput}
-                      onChange={(e) => setTotalWordInput(e.target.value)}
-                      onBlur={() => commitNumber("totalWordLimit", totalWordInput, 100)}
-                      onKeyDown={(e) => e.key === "Enter" && commitNumber("totalWordLimit", totalWordInput, 100)}
-                      className="bg-input/50 h-9 text-sm"
-                    />
-                  ) : (
-                    <div className="rounded-md border border-border/50 bg-secondary/30 px-3 py-2 text-sm">
-                      {lobby.totalWordLimit}
-                    </div>
-                  )}
-                </div>
-              </div>
             </CardContent>
           </Card>
 
