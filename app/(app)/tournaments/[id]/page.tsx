@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { TournamentRegisterForm } from "@/components/tournament/TournamentRegisterForm";
 import { BracketView } from "@/components/tournament/BracketView";
-import { JUDGE_SYSTEM_PROMPT } from "@/lib/claude";
+import { JUDGE_SYSTEM_PROMPT } from "@/lib/prompts";
 
 const AVAILABLE_MODELS: Record<string, string> = {
   "claude-sonnet-4-6": "Claude Sonnet 4.6",
@@ -53,6 +53,7 @@ export default async function TournamentPage({ params, searchParams }: {
     ? tournament.registrations.find((r) => r.userId === userId)
     : null;
 
+  const isOpenQuestion = tournament.type === "OPEN_QUESTION";
   const forPlayers = tournament.registrations.filter((r) => r.side === "FOR");
   const againstPlayers = tournament.registrations.filter((r) => r.side === "AGAINST");
   const prizeNet = Math.floor(tournament.prizePoolPence * (10000 - tournament.platformCutBps) / 10000);
@@ -61,11 +62,11 @@ export default async function TournamentPage({ params, searchParams }: {
   const userMessageTemplate = `Topic: ${tournament.topic}${tournament.description ? `\nContext: ${tournament.description}` : ""}
 
 Participants:
-- [username1] (id: [userId1])
-- [username2] (id: [userId2])
+- [Player 1 username] (id: [userId1])
+- [Player 2 username] (id: [userId2])
 
 Transcript (chronological):
-[debate messages in order]
+[Full message history between the two players, in order]
 
 Judge this dispute and return your verdict as JSON.`;
 
@@ -88,7 +89,7 @@ Judge this dispute and return your verdict as JSON.`;
                   £{(Math.floor(tournament.prizeGuaranteePence * (10000 - tournament.platformCutBps) / 10000) / 100).toFixed(2)} guaranteed prize
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  £{(prizeNet / 100).toFixed(2)} collected so far · split between 2 champions
+                  £{(prizeNet / 100).toFixed(2)} collected so far · {isOpenQuestion ? "1 winner" : "split between 2 champions"}
                 </span>
               </>
             ) : (
@@ -96,7 +97,7 @@ Judge this dispute and return your verdict as JSON.`;
                 <Badge variant="outline" className="text-sm px-3 py-1 font-bold">
                   £{(prizeNet / 100).toFixed(2)} prize pool
                 </Badge>
-                <span className="text-xs text-muted-foreground">split between 2 champions</span>
+                <span className="text-xs text-muted-foreground">{isOpenQuestion ? "1 winner takes all" : "split between 2 champions"}</span>
               </>
             )}
           </div>
@@ -123,6 +124,7 @@ Judge this dispute and return your verdict as JSON.`;
           tournamentId={tournament.id}
           entryFeePence={tournament.entryFeePence}
           isFree={tournament.entryFeePence === 0}
+          isOpenQuestion={isOpenQuestion}
         />
       )}
 
@@ -137,10 +139,10 @@ Judge this dispute and return your verdict as JSON.`;
       )}
 
       {/* Registration counts */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-3 space-y-2">
-          <p className="text-sm font-semibold text-blue-400">For ({forPlayers.length})</p>
-          {forPlayers.map((r, i) => (
+      {isOpenQuestion ? (
+        <div className="rounded-xl border border-border/50 bg-card px-4 py-3 space-y-2">
+          <p className="text-sm font-semibold">Participants ({tournament.registrations.length})</p>
+          {tournament.registrations.sort((a, b) => b.seedElo - a.seedElo).map((r, i) => (
             <div key={r.userId} className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="w-4">{i + 1}.</span>
               <span className="text-foreground">{r.user.username}</span>
@@ -148,17 +150,30 @@ Judge this dispute and return your verdict as JSON.`;
             </div>
           ))}
         </div>
-        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 space-y-2">
-          <p className="text-sm font-semibold text-violet-400">Against ({againstPlayers.length})</p>
-          {againstPlayers.map((r, i) => (
-            <div key={r.userId} className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="w-4">{i + 1}.</span>
-              <span className="text-foreground">{r.user.username}</span>
-              <span>{r.seedElo} ELO</span>
-            </div>
-          ))}
+      ) : (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-3 space-y-2">
+            <p className="text-sm font-semibold text-blue-400">For ({forPlayers.length})</p>
+            {forPlayers.map((r, i) => (
+              <div key={r.userId} className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="w-4">{i + 1}.</span>
+                <span className="text-foreground">{r.user.username}</span>
+                <span>{r.seedElo} ELO</span>
+              </div>
+            ))}
+          </div>
+          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 space-y-2">
+            <p className="text-sm font-semibold text-violet-400">Against ({againstPlayers.length})</p>
+            {againstPlayers.map((r, i) => (
+              <div key={r.userId} className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="w-4">{i + 1}.</span>
+                <span className="text-foreground">{r.user.username}</span>
+                <span>{r.seedElo} ELO</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Bracket */}
       {tournament.rounds.length > 0 && (

@@ -36,6 +36,11 @@ enum NotificationType {
   TOURNAMENT_WINNER
 }
 
+enum TournamentType {
+  DEBATE
+  OPEN_QUESTION
+}
+
 enum TournamentStatus {
   REGISTRATION_OPEN
   REGISTRATION_CLOSED
@@ -214,6 +219,7 @@ model PushSubscription {
 
 model Tournament {
   id                   String           @id @default(cuid())
+  type                 TournamentType   @default(DEBATE)
   title                String
   topic                String
   description          String?
@@ -241,7 +247,7 @@ model TournamentRegistration {
   id                    String             @id @default(cuid())
   tournamentId          String
   userId                String
-  side                  TournamentSide
+  side                  TournamentSide?
   status                RegistrationStatus @default(PENDING_PAYMENT)
   stripeCheckoutId      String?            @unique
   stripePaymentIntentId String?

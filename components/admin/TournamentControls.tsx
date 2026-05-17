@@ -19,6 +19,7 @@ interface Match {
 interface Props {
   tournamentId: string;
   status: string;
+  tournamentType: string;
   forCount: number;
   againstCount: number;
   prizePoolPence: number;
@@ -28,7 +29,9 @@ interface Props {
   rounds: { id: string; roundNumber: number; matches: Match[] }[];
 }
 
-export function TournamentControls({ tournamentId, status, forCount, againstCount, prizePoolPence, prizeGuaranteePence, prizeGuaranteeMinPct, matchTimeLimitSeconds, rounds }: Props) {
+export function TournamentControls({ tournamentId, status, tournamentType, forCount, againstCount, prizePoolPence, prizeGuaranteePence, prizeGuaranteeMinPct, matchTimeLimitSeconds, rounds }: Props) {
+  const isOpenQuestion = tournamentType === "OPEN_QUESTION";
+  const totalPlayers = forCount + againstCount;
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [topUpGbp, setTopUpGbp] = useState("");
@@ -76,7 +79,8 @@ export function TournamentControls({ tournamentId, status, forCount, againstCoun
               ? Math.floor(prizeGuaranteePence * prizeGuaranteeMinPct / 100)
               : 0;
             const shortfall = threshold > prizePoolPence ? threshold - prizePoolPence : 0;
-            const blocked = forCount === 0 || againstCount === 0 || shortfall > 0;
+            const notEnoughPlayers = isOpenQuestion ? totalPlayers < 2 : (forCount === 0 || againstCount === 0);
+            const blocked = notEnoughPlayers || shortfall > 0;
             return (
               <>
                 <Button
@@ -110,14 +114,16 @@ export function TournamentControls({ tournamentId, status, forCount, againstCoun
             </Button>
           )}
         </div>
-        {(forCount === 0 || againstCount === 0) && (
-          <p className="text-xs text-amber-400">Need at least 1 player on each side to generate bracket.</p>
-        )}
-        {forCount !== againstCount && forCount > 0 && againstCount > 0 && (
-          <p className="text-xs text-amber-400">
-            Uneven sides ({forCount} For, {againstCount} Against) — {Math.abs(forCount - againstCount)} bye match(es) will be created.
-          </p>
-        )}
+        {isOpenQuestion
+          ? totalPlayers < 2 && <p className="text-xs text-amber-400">Need at least 2 players to generate bracket.</p>
+          : (forCount === 0 || againstCount === 0)
+            ? <p className="text-xs text-amber-400">Need at least 1 player on each side to generate bracket.</p>
+            : forCount !== againstCount && (
+              <p className="text-xs text-amber-400">
+                Uneven sides ({forCount} For, {againstCount} Against) — {Math.abs(forCount - againstCount)} bye match(es) will be created.
+              </p>
+            )
+        }
       </div>
 
       {/* Prize pool top-up */}

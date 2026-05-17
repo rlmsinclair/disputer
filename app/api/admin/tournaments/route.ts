@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!await requireAdmin()) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { title, topic, description, entryFeePence, platformCutBps, maxTypingSpeedWpm, matchTimeLimitSeconds, prizeGuaranteePence, prizeGuaranteeMinPct, registrationDeadline, customSystemPrompt, claudeModel, claudeMaxTokens, claudeTemperature } = body;
+  const { type, title, topic, description, entryFeePence, platformCutBps, maxTypingSpeedWpm, matchTimeLimitSeconds, prizeGuaranteePence, prizeGuaranteeMinPct, registrationDeadline, customSystemPrompt, claudeModel, claudeMaxTokens, claudeTemperature } = body;
 
   if (!title?.trim() || !topic?.trim() || !registrationDeadline) {
     return NextResponse.json({ error: "title, topic, and registrationDeadline are required" }, { status: 400 });
@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
 
   const tournament = await prisma.tournament.create({
     data: {
+      type: type === "OPEN_QUESTION" ? "OPEN_QUESTION" : "DEBATE",
       title: title.trim(),
       topic: topic.trim(),
       description: description?.trim() || null,

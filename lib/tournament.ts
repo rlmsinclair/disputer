@@ -6,7 +6,7 @@ export async function advanceBracket(tournamentMatchId: string, winnerId: string
     include: {
       round: {
         include: {
-          tournament: true,
+          tournament: { select: { id: true, title: true, type: true, prizePoolPence: true, platformCutBps: true } },
           matches: { orderBy: { id: "asc" } },
         },
       },
@@ -16,6 +16,7 @@ export async function advanceBracket(tournamentMatchId: string, winnerId: string
 
   const { round } = match;
   const { tournament } = round;
+  const isOpenQuestion = tournament.type === "OPEN_QUESTION";
 
   // Find this match's index within its round
   const matchIndex = round.matches.findIndex((m) => m.id === match.id);
@@ -33,27 +34,44 @@ export async function advanceBracket(tournamentMatchId: string, winnerId: string
   });
 
   if (!nextRound) {
-    // This was the final round — both finalists are co-champions
+    // This was the final round
     await prisma.tournament.update({
       where: { id: tournament.id },
       data: { status: "COMPLETED" },
     });
 
-    // Notify both finalists as winners
-    const finalistIds = [match.forUserId, match.againstUserId].filter(Boolean) as string[];
-    await prisma.notification.createMany({
-      data: finalistIds.map((userId) => ({
-        userId,
-        type: "TOURNAMENT_WINNER" as const,
-        payload: {
-          tournamentId: tournament.id,
-          tournamentTitle: tournament.title,
-          prizeEstimatePence: Math.floor(
-            (tournament.prizePoolPence * (10000 - tournament.platformCutBps)) / 10000 / 2
-          ),
+    if (isOpenQuestion) {
+      // Single winner takes the full prize
+      await prisma.notification.create({
+        data: {
+          userId: winnerId,
+          type: "TOURNAMENT_WINNER",
+          payload: {
+            tournamentId: tournament.id,
+            tournamentTitle: tournament.title,
+            prizeEstimatePence: Math.floor(
+              (tournament.prizePoolPence * (10000 - tournament.platformCutBps)) / 10000
+            ),
+          },
         },
-      })),
-    });
+      });
+    } else {
+      // DEBATE — both finalists are co-champions, split prize
+      const finalistIds = [match.forUserId, match.againstUserId].filter(Boolean) as string[];
+      await prisma.notification.createMany({
+        data: finalistIds.map((userId) => ({
+          userId,
+          type: "TOURNAMENT_WINNER" as const,
+          payload: {
+            tournamentId: tournament.id,
+            tournamentTitle: tournament.title,
+            prizeEstimatePence: Math.floor(
+              (tournament.prizePoolPence * (10000 - tournament.platformCutBps)) / 10000 / 2
+            ),
+          },
+        })),
+      });
+    }
   } else {
     // Advance winner into the next round's shell match
     const nextMatchIndex = Math.floor(matchIndex / 2);

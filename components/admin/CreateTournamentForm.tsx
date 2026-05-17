@@ -6,11 +6,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { JUDGE_SYSTEM_PROMPT } from "@/lib/prompts";
 
 export function CreateTournamentForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
+    type: "DEBATE",
     title: "",
     topic: "",
     description: "",
@@ -21,7 +23,7 @@ export function CreateTournamentForm() {
     maxTypingSpeedWpm: "",
     matchTimeLimitMinutes: "",
     registrationDeadline: "",
-    customSystemPrompt: "",
+    customSystemPrompt: JUDGE_SYSTEM_PROMPT,
     claudeModel: "claude-sonnet-4-6",
     claudeMaxTokens: 1024,
     claudeTemperature: "",
@@ -40,6 +42,7 @@ export function CreateTournamentForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          type: form.type,
           maxTypingSpeedWpm: form.maxTypingSpeedWpm ? parseInt(form.maxTypingSpeedWpm) : null,
           matchTimeLimitSeconds: form.matchTimeLimitMinutes ? parseInt(form.matchTimeLimitMinutes) * 60 : null,
           customSystemPrompt: form.customSystemPrompt.trim() || null,
@@ -67,6 +70,30 @@ export function CreateTournamentForm() {
 
   return (
     <form onSubmit={submit} className="space-y-5 max-w-lg">
+      <div className="space-y-1.5">
+        <Label>Tournament Type</Label>
+        <div className="grid grid-cols-2 gap-3">
+          {([
+            { value: "DEBATE", label: "⚔️ Debate", desc: "Players pick For or Against and argue a position" },
+            { value: "OPEN_QUESTION", label: "💡 Open Question", desc: "Anyone can enter — best response wins" },
+          ] as const).map(({ value, label, desc }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => set("type", value)}
+              className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                form.type === value
+                  ? "border-primary/50 bg-primary/10 text-foreground"
+                  : "border-border/50 text-muted-foreground hover:border-border"
+              }`}
+            >
+              <p className="text-sm font-semibold">{label}</p>
+              <p className="text-[11px] mt-0.5">{desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="space-y-1.5">
         <Label htmlFor="title">Title</Label>
         <Input

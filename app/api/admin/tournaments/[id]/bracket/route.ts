@@ -32,24 +32,44 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     }
   }
 
-  const forPlayers = tournament.registrations
-    .filter((r) => r.side === "FOR")
-    .sort((a, b) => b.seedElo - a.seedElo);
-  const againstPlayers = tournament.registrations
-    .filter((r) => r.side === "AGAINST")
-    .sort((a, b) => b.seedElo - a.seedElo);
+  const isOpenQuestion = tournament.type === "OPEN_QUESTION";
 
-  if (forPlayers.length === 0 || againstPlayers.length === 0) {
-    return NextResponse.json({ error: "Need at least 1 player on each side" }, { status: 400 });
+  let forSeeded: (string | null)[];
+  let againstSeeded: (string | null)[];
+  let slots: number;
+  let roundCount: number;
+
+  if (isOpenQuestion) {
+    const allPlayers = tournament.registrations
+      .sort((a, b) => b.seedElo - a.seedElo)
+      .map((r) => r.userId);
+    if (allPlayers.length < 2) {
+      return NextResponse.json({ error: "Need at least 2 players" }, { status: 400 });
+    }
+    slots = Math.pow(2, Math.ceil(Math.log2(Math.max(allPlayers.length, 2))));
+    roundCount = Math.log2(slots);
+    // Even indices → forUserId, odd indices → againstUserId
+    const padded = [...allPlayers, ...Array(slots - allPlayers.length).fill(null)] as (string | null)[];
+    forSeeded = padded.filter((_, i) => i % 2 === 0);
+    againstSeeded = padded.filter((_, i) => i % 2 === 1);
+  } else {
+    const forPlayers = tournament.registrations
+      .filter((r) => r.side === "FOR")
+      .sort((a, b) => b.seedElo - a.seedElo);
+    const againstPlayers = tournament.registrations
+      .filter((r) => r.side === "AGAINST")
+      .sort((a, b) => b.seedElo - a.seedElo);
+
+    if (forPlayers.length === 0 || againstPlayers.length === 0) {
+      return NextResponse.json({ error: "Need at least 1 player on each side" }, { status: 400 });
+    }
+
+    const maxSide = Math.max(forPlayers.length, againstPlayers.length);
+    slots = Math.pow(2, Math.ceil(Math.log2(Math.max(maxSide, 1))));
+    roundCount = Math.log2(slots);
+    forSeeded = [...forPlayers.map((r) => r.userId), ...Array(slots - forPlayers.length).fill(null)] as (string | null)[];
+    againstSeeded = [...againstPlayers.map((r) => r.userId), ...Array(slots - againstPlayers.length).fill(null)] as (string | null)[];
   }
-
-  const maxSide = Math.max(forPlayers.length, againstPlayers.length);
-  const slots = Math.pow(2, Math.ceil(Math.log2(Math.max(maxSide, 1))));
-  const roundCount = Math.log2(slots);
-
-  // Pad each side to `slots` length with null (bye)
-  const forSeeded = [...forPlayers.map((r) => r.userId), ...Array(slots - forPlayers.length).fill(null)] as (string | null)[];
-  const againstSeeded = [...againstPlayers.map((r) => r.userId), ...Array(slots - againstPlayers.length).fill(null)] as (string | null)[];
 
   const byeMatchIds: string[] = [];
 

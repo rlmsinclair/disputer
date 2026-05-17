@@ -160,6 +160,7 @@ export default async function TournamentAdminDetailPage({ params }: { params: Pr
       <TournamentControls
         tournamentId={tournament.id}
         status={tournament.status}
+        tournamentType={tournament.type}
         forCount={forPlayers.length}
         againstCount={againstPlayers.length}
         prizePoolPence={tournament.prizePoolPence}

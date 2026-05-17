@@ -9,16 +9,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const userId = session.user.id;
 
   const { id: tournamentId } = await params;
-  const { side } = await req.json();
-
-  if (side !== "FOR" && side !== "AGAINST") {
-    return NextResponse.json({ error: "side must be FOR or AGAINST" }, { status: 400 });
-  }
+  const body = await req.json();
+  const { side } = body;
 
   const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
   if (!tournament) return NextResponse.json({ error: "Tournament not found" }, { status: 404 });
   if (tournament.status !== "REGISTRATION_OPEN") {
     return NextResponse.json({ error: "Registration is closed" }, { status: 400 });
+  }
+
+  const isOpenQuestion = tournament.type === "OPEN_QUESTION";
+  if (!isOpenQuestion && side !== "FOR" && side !== "AGAINST") {
+    return NextResponse.json({ error: "side must be FOR or AGAINST" }, { status: 400 });
   }
 
   // Atomic check + insert to prevent race conditions
@@ -35,7 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         data: {
           tournamentId,
           userId,
-          side,
+          side: isOpenQuestion ? null : side,
           seedElo: user?.elo ?? 1200,
           status: tournament.entryFeePence === 0 ? "REGISTERED" : "PENDING_PAYMENT",
         },
