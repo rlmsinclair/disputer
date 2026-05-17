@@ -21,6 +21,10 @@ export function CreateTournamentForm() {
     maxTypingSpeedWpm: "",
     matchTimeLimitMinutes: "",
     registrationDeadline: "",
+    customSystemPrompt: "",
+    claudeModel: "claude-sonnet-4-6",
+    claudeMaxTokens: 1024,
+    claudeTemperature: "",
   });
 
   function set(field: string, value: string | number) {
@@ -38,6 +42,10 @@ export function CreateTournamentForm() {
           ...form,
           maxTypingSpeedWpm: form.maxTypingSpeedWpm ? parseInt(form.maxTypingSpeedWpm) : null,
           matchTimeLimitSeconds: form.matchTimeLimitMinutes ? parseInt(form.matchTimeLimitMinutes) * 60 : null,
+          customSystemPrompt: form.customSystemPrompt.trim() || null,
+          claudeModel: form.claudeModel || null,
+          claudeMaxTokens: form.claudeMaxTokens || null,
+          claudeTemperature: form.claudeTemperature !== "" ? parseFloat(form.claudeTemperature) : null,
           entryFeePence: Math.round(form.entryFeePence * 100),
           prizeGuaranteePence: form.prizeGuaranteePence ? Math.round(parseFloat(form.prizeGuaranteePence) * 100) : null,
           prizeGuaranteeMinPct: form.prizeGuaranteeMinPct,
@@ -206,6 +214,76 @@ export function CreateTournamentForm() {
           onChange={(e) => set("registrationDeadline", e.target.value)}
           required
         />
+      </div>
+
+      {/* Claude API settings */}
+      <div className="space-y-4 rounded-lg border border-border/50 bg-secondary/20 p-4">
+        <p className="text-sm font-semibold">Judge Settings (Claude API)</p>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="customPrompt">
+            Custom System Prompt{" "}
+            <span className="text-muted-foreground font-normal">(optional — leave blank to use the default)</span>
+          </Label>
+          <textarea
+            id="customPrompt"
+            rows={8}
+            placeholder={`Leave blank to use the default prompt, or write your own.\n\nIMPORTANT: your prompt must instruct Claude to respond with valid JSON in this exact format:\n{\n  "winnerIds": ["userId"],\n  "reason": "explanation"\n}`}
+            value={form.customSystemPrompt}
+            onChange={(e) => set("customSystemPrompt", e.target.value)}
+            className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Use this to change judging criteria entirely — e.g. for open-ended questions, creative challenges, or custom scoring rules.
+            Must still output <code className="font-mono">{"{ winnerIds, reason }"}</code>.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="claudeModel">Model</Label>
+            <select
+              id="claudeModel"
+              value={form.claudeModel}
+              onChange={(e) => set("claudeModel", e.target.value)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="claude-sonnet-4-6">Sonnet 4.6 (default)</option>
+              <option value="claude-opus-4-7">Opus 4.7 (best, slower)</option>
+              <option value="claude-haiku-4-5-20251001">Haiku 4.5 (fastest)</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="claudeMaxTokens">Max Tokens</Label>
+            <Input
+              id="claudeMaxTokens"
+              type="number"
+              min="256"
+              max="8192"
+              step="256"
+              value={form.claudeMaxTokens}
+              onChange={(e) => set("claudeMaxTokens", parseInt(e.target.value) || 1024)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="claudeTemperature">
+              Temperature{" "}
+              <span className="text-muted-foreground font-normal">(0–1)</span>
+            </Label>
+            <Input
+              id="claudeTemperature"
+              type="number"
+              min="0"
+              max="1"
+              step="0.1"
+              placeholder="default"
+              value={form.claudeTemperature}
+              onChange={(e) => set("claudeTemperature", e.target.value)}
+            />
+          </div>
+        </div>
       </div>
 
       <Button type="submit" disabled={loading} className="w-full">

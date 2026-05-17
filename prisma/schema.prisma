@@ -224,6 +224,10 @@ model Tournament {
   maxTypingSpeedWpm      Int?
   matchTimeLimitSeconds  Int?
   prizeGuaranteePence    Int?
+  customSystemPrompt     String?
+  claudeModel            String?
+  claudeMaxTokens        Int?
+  claudeTemperature      Float?
   prizeGuaranteeMinPct Int      @default(100)
   registrationDeadline DateTime
   createdAt            DateTime         @default(now())

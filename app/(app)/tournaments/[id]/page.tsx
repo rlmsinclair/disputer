@@ -6,6 +6,12 @@ import { TournamentRegisterForm } from "@/components/tournament/TournamentRegist
 import { BracketView } from "@/components/tournament/BracketView";
 import { JUDGE_SYSTEM_PROMPT } from "@/lib/claude";
 
+const AVAILABLE_MODELS: Record<string, string> = {
+  "claude-sonnet-4-6": "Claude Sonnet 4.6",
+  "claude-opus-4-7": "Claude Opus 4.7",
+  "claude-haiku-4-5-20251001": "Claude Haiku 4.5",
+};
+
 export default async function TournamentPage({ params, searchParams }: {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ registered?: string }>;
@@ -18,6 +24,7 @@ export default async function TournamentPage({ params, searchParams }: {
 
   const tournament = await prisma.tournament.findUnique({
     where: { id },
+    // customSystemPrompt, claudeModel, claudeMaxTokens, claudeTemperature fetched for prompt transparency section
     include: {
       registrations: {
         where: { status: "REGISTERED" },
@@ -172,10 +179,22 @@ Judge this dispute and return your verdict as JSON.`;
         </summary>
         <div className="px-5 pb-5 space-y-4 text-sm">
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">System Prompt (sent to Claude)</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              System Prompt (sent to Claude)
+              {tournament.customSystemPrompt && (
+                <span className="ml-2 text-primary font-normal normal-case">— custom</span>
+              )}
+            </p>
             <pre className="rounded-lg bg-secondary/50 p-3 text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap leading-relaxed">
-              {JUDGE_SYSTEM_PROMPT}
+              {tournament.customSystemPrompt || JUDGE_SYSTEM_PROMPT}
             </pre>
+          </div>
+          <div className="flex gap-4 text-xs text-muted-foreground">
+            <span>Model: <strong className="text-foreground">{AVAILABLE_MODELS[tournament.claudeModel ?? ""] ?? tournament.claudeModel ?? "Claude Sonnet 4.6"}</strong></span>
+            <span>Max tokens: <strong className="text-foreground">{tournament.claudeMaxTokens ?? 1024}</strong></span>
+            {tournament.claudeTemperature !== null && (
+              <span>Temperature: <strong className="text-foreground">{tournament.claudeTemperature}</strong></span>
+            )}
           </div>
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">User Message Template</p>

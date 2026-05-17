@@ -31,13 +31,30 @@ export async function judgeDispute(disputeId: string): Promise<JudgeResult> {
     include: {
       players: { include: { user: { select: { id: true, username: true } } } },
       messages: { include: { user: { select: { id: true, username: true } } }, orderBy: { createdAt: "asc" } },
-      tournamentMatch: { include: { round: { include: { tournament: { select: { description: true } } } } } },
+      tournamentMatch: {
+        include: {
+          round: {
+            include: {
+              tournament: {
+                select: {
+                  description: true,
+                  customSystemPrompt: true,
+                  claudeModel: true,
+                  claudeMaxTokens: true,
+                  claudeTemperature: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
   });
   if (!dispute) throw new Error("Dispute not found");
 
   const lobby = await prisma.lobby.findUnique({ where: { id: dispute.lobbyId } });
-  const tournamentDescription = dispute.tournamentMatch?.round?.tournament?.description ?? null;
+  const tournament = dispute.tournamentMatch?.round?.tournament ?? null;
+  const tournamentDescription = tournament?.description ?? null;
 
   const transcript = dispute.messages.map((m) => ({
     username: m.user.username,
@@ -60,10 +77,16 @@ ${JSON.stringify(transcript, null, 2)}
 
 Judge this dispute and return your verdict as JSON.`;
 
+  const systemPrompt = tournament?.customSystemPrompt || JUDGE_SYSTEM_PROMPT;
+  const model = tournament?.claudeModel || "claude-sonnet-4-6";
+  const maxTokens = tournament?.claudeMaxTokens || 1024;
+  const temperature = tournament?.claudeTemperature ?? undefined;
+
   const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    system: JUDGE_SYSTEM_PROMPT,
+    model,
+    max_tokens: maxTokens,
+    system: systemPrompt,
+    ...(temperature !== undefined ? { temperature } : {}),
     messages: [{ role: "user", content: userMessage }],
   });
 
