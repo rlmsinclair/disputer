@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -8,28 +8,48 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { JUDGE_SYSTEM_PROMPT, OPEN_QUESTION_SYSTEM_PROMPT } from "@/lib/prompts";
 
+const STORAGE_KEY = "new_tournament_form";
+
+const DEFAULT_FORM = {
+  type: "DEBATE",
+  title: "",
+  topic: "",
+  description: "",
+  entryFeePence: 0,
+  prizeGuaranteePence: "",
+  lockBracket: false,
+  prizeGuaranteeMinPct: 100,
+  platformCutBps: 1000,
+  maxTypingSpeedWpm: "",
+  matchTimeLimitMinutes: "",
+  startsAt: "",
+  registrationDeadline: "",
+  customSystemPrompt: JUDGE_SYSTEM_PROMPT,
+  claudeModel: "claude-sonnet-4-6",
+  claudeMaxTokens: 1024,
+  claudeTemperature: "",
+};
+
 export function CreateTournamentForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    type: "DEBATE",
-    title: "",
-    topic: "",
-    description: "",
-    entryFeePence: 0,
-    prizeGuaranteePence: "",
-    lockBracket: false,
-    prizeGuaranteeMinPct: 100,
-    platformCutBps: 1000,
-    maxTypingSpeedWpm: "",
-    matchTimeLimitMinutes: "",
-    startsAt: "",
-    registrationDeadline: "",
-    customSystemPrompt: JUDGE_SYSTEM_PROMPT,
-    claudeModel: "claude-sonnet-4-6",
-    claudeMaxTokens: 1024,
-    claudeTemperature: "",
-  });
+  const [form, setFormState] = useState(DEFAULT_FORM);
+
+  // Restore saved state on mount
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved) setFormState(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  const setForm = useCallback((updater: (prev: typeof DEFAULT_FORM) => typeof DEFAULT_FORM) => {
+    setFormState((prev) => {
+      const next = updater(prev);
+      try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   function set(field: string, value: string | number | boolean) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -43,8 +63,7 @@ export function CreateTournamentForm() {
     }));
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/tournaments", {
@@ -70,6 +89,7 @@ export function CreateTournamentForm() {
         throw new Error(error);
       }
       const tournament = await res.json();
+      try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
       toast.success("Tournament created");
       router.push(`/admin/tournaments/${tournament.id}`);
     } catch (err) {
@@ -80,7 +100,11 @@ export function CreateTournamentForm() {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5 max-w-lg">
+    <form
+      className="space-y-5 max-w-lg"
+      onSubmit={(e) => e.preventDefault()}
+      onKeyDown={(e) => { if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "TEXTAREA") e.preventDefault(); }}
+    >
       <div className="space-y-1.5">
         <Label>Tournament Type</Label>
         <div className="grid grid-cols-2 gap-3">
@@ -358,7 +382,7 @@ export function CreateTournamentForm() {
         </div>
       </div>
 
-      <Button type="submit" disabled={loading} className="w-full">
+      <Button type="button" onClick={submit} disabled={loading} className="w-full">
         {loading ? "Creating…" : "Create Tournament"}
       </Button>
     </form>
