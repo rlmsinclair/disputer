@@ -6,6 +6,43 @@ import { countWords } from "@/lib/wordcount";
 import { advanceBracket } from "@/lib/tournament";
 
 const passedUsers = new Map<string, Set<string>>();
+const matchTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function scheduleMatchEnd(io: Server, disputeId: string, msFromNow: number) {
+  const existing = matchTimers.get(disputeId);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(async () => {
+    matchTimers.delete(disputeId);
+    const dispute = await prisma.dispute.findUnique({ where: { id: disputeId } });
+    if (dispute?.status === "IN_PROGRESS") {
+      io.to(`dispute:${disputeId}`).emit("dispute:time_up");
+      await endDispute(io, disputeId);
+    }
+  }, msFromNow);
+  matchTimers.set(disputeId, timer);
+}
+
+// Called on server startup to recover timers for in-progress tournament matches
+export async function setupMatchTimers(io: Server) {
+  const active = await prisma.dispute.findMany({
+    where: { status: "IN_PROGRESS" },
+    include: {
+      tournamentMatch: { include: { round: { include: { tournament: { select: { matchTimeLimitSeconds: true } } } } } },
+    },
+  });
+
+  for (const dispute of active) {
+    const limitSeconds = dispute.tournamentMatch?.round?.tournament?.matchTimeLimitSeconds;
+    if (!limitSeconds) continue;
+    const elapsed = (Date.now() - dispute.startedAt.getTime()) / 1000;
+    const remaining = limitSeconds - elapsed;
+    if (remaining <= 0) {
+      await endDispute(io, dispute.id);
+    } else {
+      scheduleMatchEnd(io, dispute.id, remaining * 1000);
+    }
+  }
+}
 
 const disputeInclude = {
   players: {
@@ -211,11 +248,23 @@ export async function startDispute(io: Server, lobbyId: string) {
 
   passedUsers.set(dispute.id, new Set());
 
+  // Start match timer if this is a tournament match with a time limit
+  const tournamentMatch = await prisma.tournamentMatch.findUnique({
+    where: { lobbyId },
+    include: { round: { include: { tournament: { select: { matchTimeLimitSeconds: true } } } } },
+  });
+  const limitSeconds = tournamentMatch?.round?.tournament?.matchTimeLimitSeconds;
+  if (limitSeconds) {
+    scheduleMatchEnd(io, dispute.id, limitSeconds * 1000);
+  }
+
   return dispute.id;
 }
 
 export async function endDispute(io: Server, disputeId: string) {
   passedUsers.delete(disputeId);
+  const timer = matchTimers.get(disputeId);
+  if (timer) { clearTimeout(timer); matchTimers.delete(disputeId); }
 
   await prisma.dispute.update({ where: { id: disputeId }, data: { status: "JUDGING", endedAt: new Date() } });
   io.to(`dispute:${disputeId}`).emit("dispute:judging");

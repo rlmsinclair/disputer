@@ -33,6 +33,9 @@ export default async function DisputePage({
           totalWordLimit: true,
         },
       },
+      tournamentMatch: {
+        include: { round: { include: { tournament: { select: { matchTimeLimitSeconds: true, maxTypingSpeedWpm: true } } } } },
+      },
     },
   });
 
@@ -83,6 +86,9 @@ export default async function DisputePage({
       currentUserId={userId}
       currentUsername={session.user?.name ?? ""}
       isPlayer={isPlayer}
+      matchTimeLimitSeconds={dispute.tournamentMatch?.round?.tournament?.matchTimeLimitSeconds ?? null}
+      matchStartedAt={dispute.startedAt.toISOString()}
+      maxTypingSpeedWpm={dispute.tournamentMatch?.round?.tournament?.maxTypingSpeedWpm ?? null}
     />
   );
 }

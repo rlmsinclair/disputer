@@ -24,13 +24,15 @@ interface Props {
   prizePoolPence: number;
   prizeGuaranteePence: number | null;
   prizeGuaranteeMinPct: number;
+  matchTimeLimitSeconds: number | null;
   rounds: { id: string; roundNumber: number; matches: Match[] }[];
 }
 
-export function TournamentControls({ tournamentId, status, forCount, againstCount, prizePoolPence, prizeGuaranteePence, prizeGuaranteeMinPct, rounds }: Props) {
+export function TournamentControls({ tournamentId, status, forCount, againstCount, prizePoolPence, prizeGuaranteePence, prizeGuaranteeMinPct, matchTimeLimitSeconds, rounds }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [topUpGbp, setTopUpGbp] = useState("");
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState(matchTimeLimitSeconds ? String(matchTimeLimitSeconds / 60) : "");
 
   async function action(path: string, method = "POST", body?: object) {
     setLoading(path);
@@ -149,6 +151,35 @@ export function TournamentControls({ tournamentId, status, forCount, againstCoun
             Top Up
           </Button>
         </div>
+      </div>
+
+      {/* Match time limit */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Match Time Limit</h3>
+        <div className="flex gap-2 items-end">
+          <div className="flex-1 max-w-[160px]">
+            <label className="text-xs text-muted-foreground mb-1 block">Minutes (blank = no limit)</label>
+            <Input
+              type="number"
+              min="1"
+              placeholder="e.g. 10"
+              value={timeLimitMinutes}
+              onChange={(e) => setTimeLimitMinutes(e.target.value)}
+            />
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isLoading("/time-limit")}
+            onClick={async () => {
+              const seconds = timeLimitMinutes ? parseInt(timeLimitMinutes) * 60 : null;
+              await action("", "PATCH", { matchTimeLimitSeconds: seconds });
+            }}
+          >
+            Save
+          </Button>
+        </div>
+        <p className="text-[11px] text-muted-foreground">Players see a live countdown. Match ends automatically when time runs out.</p>
       </div>
 
       {/* Per-match controls */}

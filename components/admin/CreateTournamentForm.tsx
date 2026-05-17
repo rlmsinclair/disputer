@@ -19,6 +19,7 @@ export function CreateTournamentForm() {
     prizeGuaranteeMinPct: 100,
     platformCutBps: 1000,
     maxTypingSpeedWpm: "",
+    matchTimeLimitMinutes: "",
     registrationDeadline: "",
   });
 
@@ -36,6 +37,7 @@ export function CreateTournamentForm() {
         body: JSON.stringify({
           ...form,
           maxTypingSpeedWpm: form.maxTypingSpeedWpm ? parseInt(form.maxTypingSpeedWpm) : null,
+          matchTimeLimitSeconds: form.matchTimeLimitMinutes ? parseInt(form.matchTimeLimitMinutes) * 60 : null,
           entryFeePence: Math.round(form.entryFeePence * 100),
           prizeGuaranteePence: form.prizeGuaranteePence ? Math.round(parseFloat(form.prizeGuaranteePence) * 100) : null,
           prizeGuaranteeMinPct: form.prizeGuaranteeMinPct,
@@ -174,6 +176,24 @@ export function CreateTournamentForm() {
         />
         <p className="text-[11px] text-muted-foreground">
           Messages exceeding this speed will be rejected. Shown to players on the tournament page.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="matchTimeLimit">
+          Match Time Limit (minutes){" "}
+          <span className="text-muted-foreground font-normal">(optional — leave blank for no limit)</span>
+        </Label>
+        <Input
+          id="matchTimeLimit"
+          type="number"
+          min="1"
+          placeholder="e.g. 10"
+          value={form.matchTimeLimitMinutes}
+          onChange={(e) => set("matchTimeLimitMinutes", e.target.value)}
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Match ends automatically when the clock hits zero. Players see a live countdown.
         </p>
       </div>
 

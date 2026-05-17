@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState, useCallback } from "react";
+import { useEffect, useReducer, useRef, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -103,6 +103,8 @@ interface Props {
   currentUsername: string;
   isPlayer: boolean;
   maxTypingSpeedWpm?: number | null;
+  matchTimeLimitSeconds?: number | null;
+  matchStartedAt?: string | null;
 }
 
 export function DisputeRoom({
@@ -111,6 +113,8 @@ export function DisputeRoom({
   currentUserId,
   isPlayer,
   maxTypingSpeedWpm,
+  matchTimeLimitSeconds,
+  matchStartedAt,
 }: Props) {
   const router = useRouter();
   const [dispute, dispatch] = useReducer(reducer, initialDispute);
@@ -124,6 +128,16 @@ export function DisputeRoom({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sessionStartTimeRef = useRef<number | null>(null);
 
+  const deadlineMs = useMemo(() => {
+    if (!matchTimeLimitSeconds || !matchStartedAt) return null;
+    return new Date(matchStartedAt).getTime() + matchTimeLimitSeconds * 1000;
+  }, [matchTimeLimitSeconds, matchStartedAt]);
+
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(() => {
+    if (!deadlineMs) return null;
+    return Math.max(0, Math.round((deadlineMs - Date.now()) / 1000));
+  });
+
   const me = dispute.players.find((p) => p.userId === currentUserId);
   const iAmDisconnected = me && !me.isActive && dispute.status === "IN_PROGRESS";
 
@@ -131,6 +145,14 @@ export function DisputeRoom({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [dispute.messages.length]);
+
+  useEffect(() => {
+    if (!deadlineMs || dispute.status !== "IN_PROGRESS") return;
+    const tick = () => setSecondsLeft(Math.max(0, Math.round((deadlineMs - Date.now()) / 1000)));
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [deadlineMs, dispute.status]);
 
   useEffect(() => {
     if (dispute.status === "COMPLETED" || dispute.status === "CANCELLED") return;
@@ -194,6 +216,11 @@ export function DisputeRoom({
       setSending(false);
     });
 
+    s.on("dispute:time_up", () => {
+      toast.info("Time's up — judging in progress.");
+      setSecondsLeft(0);
+    });
+
     return () => {
       s.off("dispute:new_message");
       s.off("dispute:typing");
@@ -204,6 +231,7 @@ export function DisputeRoom({
       s.off("dispute:result");
       s.off("dispute:privacy_updated");
       s.off("dispute:error");
+      s.off("dispute:time_up");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispute.id, dispute.status, isPlayer, currentUserId]);
@@ -281,6 +309,16 @@ export function DisputeRoom({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {secondsLeft !== null && dispute.status === "IN_PROGRESS" && (() => {
+            const m = Math.floor(secondsLeft / 60);
+            const s = secondsLeft % 60;
+            const urgent = secondsLeft <= 30;
+            return (
+              <span className={`font-mono text-sm font-bold tabular-nums px-2 py-0.5 rounded ${urgent ? "text-destructive animate-pulse" : "text-muted-foreground"}`}>
+                {m}:{String(s).padStart(2, "0")}
+              </span>
+            );
+          })()}
           {isPlayer && dispute.status !== "COMPLETED" && dispute.status !== "CANCELLED" && (
             <Button
               variant="ghost"

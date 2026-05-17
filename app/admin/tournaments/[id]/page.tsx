@@ -118,6 +118,12 @@ export default async function TournamentAdminDetailPage({ params }: { params: Pr
             <span className="font-semibold">{tournament.maxTypingSpeedWpm}</span>
           </span>
         )}
+        {tournament.matchTimeLimitSeconds && (
+          <span>
+            <span className="text-muted-foreground">Match limit: </span>
+            <span className="font-semibold">{tournament.matchTimeLimitSeconds / 60} min</span>
+          </span>
+        )}
         <span>
           <span className="text-muted-foreground">Deadline: </span>
           <span className="font-semibold">{tournament.registrationDeadline.toLocaleString()}</span>
@@ -159,6 +165,7 @@ export default async function TournamentAdminDetailPage({ params }: { params: Pr
         prizePoolPence={tournament.prizePoolPence}
         prizeGuaranteePence={tournament.prizeGuaranteePence}
         prizeGuaranteeMinPct={tournament.prizeGuaranteeMinPct}
+        matchTimeLimitSeconds={tournament.matchTimeLimitSeconds}
         rounds={controlRounds}
       />
 

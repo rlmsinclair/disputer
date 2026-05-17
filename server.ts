@@ -4,7 +4,7 @@ import { parse } from "url";
 import next from "next";
 import { Server as SocketIOServer } from "socket.io";
 import { registerLobbyHandlers } from "@/lib/socket/lobbyHandlers";
-import { registerDisputeHandlers } from "@/lib/socket/disputeHandlers";
+import { registerDisputeHandlers, setupMatchTimers } from "@/lib/socket/disputeHandlers";
 import { registerUserHandlers } from "@/lib/socket/userHandlers";
 
 const dev = process.env.NODE_ENV !== "production";
@@ -30,6 +30,9 @@ app.prepare().then(() => {
 
   // make io accessible to API routes via global
   (globalThis as unknown as { io: SocketIOServer }).io = io;
+
+  // Recover timers for any in-progress tournament matches after restart
+  setupMatchTimers(io).catch(console.error);
 
   io.on("connection", (socket) => {
     registerUserHandlers(io, socket);
