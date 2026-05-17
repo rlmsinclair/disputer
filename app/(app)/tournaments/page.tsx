@@ -25,6 +25,10 @@ export default async function TournamentsPage() {
           const againstCount = t.registrations.filter((r) => r.side === "AGAINST").length;
           const prizeGbp = (t.prizePoolPence / 100).toFixed(2);
 
+          const startLabel = t.startsAt
+            ? t.startsAt.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })
+            : null;
+
           return (
             <Link
               key={t.id}
@@ -38,6 +42,9 @@ export default async function TournamentsPage() {
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">{t.topic}</p>
+              {startLabel && (
+                <p className="text-xs font-semibold text-primary">🗓 Starts {startLabel}</p>
+              )}
               <div className="flex items-center gap-4 text-xs">
                 <span className="text-blue-400">{forCount} arguing For</span>
                 <span className="text-violet-400">{againstCount} arguing Against</span>

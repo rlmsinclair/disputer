@@ -235,6 +235,7 @@ model Tournament {
   claudeMaxTokens        Int?
   claudeTemperature      Float?
   prizeGuaranteeMinPct Int      @default(100)
+  startsAt             DateTime?
   registrationDeadline DateTime
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt

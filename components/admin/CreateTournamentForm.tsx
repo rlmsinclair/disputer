@@ -23,6 +23,7 @@ export function CreateTournamentForm() {
     platformCutBps: 1000,
     maxTypingSpeedWpm: "",
     matchTimeLimitMinutes: "",
+    startsAt: "",
     registrationDeadline: "",
     customSystemPrompt: JUDGE_SYSTEM_PROMPT,
     claudeModel: "claude-sonnet-4-6",
@@ -54,6 +55,7 @@ export function CreateTournamentForm() {
           type: form.type,
           maxTypingSpeedWpm: form.maxTypingSpeedWpm ? parseInt(form.maxTypingSpeedWpm) : null,
           matchTimeLimitSeconds: form.matchTimeLimitMinutes ? parseInt(form.matchTimeLimitMinutes) * 60 : null,
+          startsAt: form.startsAt || null,
           customSystemPrompt: form.customSystemPrompt.trim() || null,
           claudeModel: form.claudeModel || null,
           claudeMaxTokens: form.claudeMaxTokens || null,
@@ -259,15 +261,31 @@ export function CreateTournamentForm() {
         </p>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="deadline">Registration Deadline</Label>
-        <Input
-          id="deadline"
-          type="datetime-local"
-          value={form.registrationDeadline}
-          onChange={(e) => set("registrationDeadline", e.target.value)}
-          required
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="startsAt">
+            Tournament Start Date &amp; Time{" "}
+            <span className="text-muted-foreground font-normal">(optional)</span>
+          </Label>
+          <Input
+            id="startsAt"
+            type="datetime-local"
+            value={form.startsAt}
+            onChange={(e) => set("startsAt", e.target.value)}
+          />
+          <p className="text-[11px] text-muted-foreground">Shown to users on the tournament page</p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="deadline">Registration Deadline</Label>
+          <Input
+            id="deadline"
+            type="datetime-local"
+            value={form.registrationDeadline}
+            onChange={(e) => set("registrationDeadline", e.target.value)}
+            required
+          />
+        </div>
       </div>
 
       {/* Claude API settings */}

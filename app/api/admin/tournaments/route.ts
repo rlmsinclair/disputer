@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!await requireAdmin()) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { type, title, topic, description, entryFeePence, platformCutBps, maxTypingSpeedWpm, matchTimeLimitSeconds, prizeGuaranteePence, prizeGuaranteeMinPct, registrationDeadline, customSystemPrompt, claudeModel, claudeMaxTokens, claudeTemperature } = body;
+  const { type, title, topic, description, entryFeePence, platformCutBps, maxTypingSpeedWpm, matchTimeLimitSeconds, startsAt, prizeGuaranteePence, prizeGuaranteeMinPct, registrationDeadline, customSystemPrompt, claudeModel, claudeMaxTokens, claudeTemperature } = body;
 
   if (!title?.trim() || !topic?.trim() || !registrationDeadline) {
     return NextResponse.json({ error: "title, topic, and registrationDeadline are required" }, { status: 400 });
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
       claudeTemperature: claudeTemperature ?? null,
       prizeGuaranteePence: prizeGuaranteePence || null,
       prizeGuaranteeMinPct: prizeGuaranteeMinPct ?? 100,
+      startsAt: startsAt ? new Date(startsAt) : null,
       registrationDeadline: new Date(registrationDeadline),
     },
   });

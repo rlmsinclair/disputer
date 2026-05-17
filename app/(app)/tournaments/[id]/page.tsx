@@ -105,7 +105,12 @@ Judge this dispute and return your verdict as JSON.`;
 
         <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
           <span>Entry: <strong className="text-foreground">{tournament.entryFeePence === 0 ? "Free" : `£${(tournament.entryFeePence / 100).toFixed(2)}`}</strong></span>
-          <span>Deadline: <strong className="text-foreground">{tournament.registrationDeadline.toLocaleDateString()}</strong></span>
+          {tournament.startsAt && (
+            <span className="text-primary font-semibold">
+              🗓 Starts {tournament.startsAt.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+            </span>
+          )}
+          <span>Registration closes: <strong className="text-foreground">{tournament.registrationDeadline.toLocaleDateString("en-GB", { dateStyle: "medium" })}</strong></span>
           {tournament.maxTypingSpeedWpm && (
             <span className="text-amber-400">⚡ Max typing speed: <strong>{tournament.maxTypingSpeedWpm} WPM</strong> (enforced)</span>
           )}
