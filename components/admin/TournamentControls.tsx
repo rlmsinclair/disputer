@@ -22,10 +22,11 @@ interface Props {
   forCount: number;
   againstCount: number;
   prizePoolPence: number;
+  prizeGuaranteePence: number | null;
   rounds: { id: string; roundNumber: number; matches: Match[] }[];
 }
 
-export function TournamentControls({ tournamentId, status, forCount, againstCount, prizePoolPence, rounds }: Props) {
+export function TournamentControls({ tournamentId, status, forCount, againstCount, prizePoolPence, prizeGuaranteePence, rounds }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [topUpGbp, setTopUpGbp] = useState("");
@@ -67,15 +68,28 @@ export function TournamentControls({ tournamentId, status, forCount, againstCoun
               Close Registration
             </Button>
           )}
-          {(status === "REGISTRATION_CLOSED" || status === "REGISTRATION_OPEN") && (
-            <Button
-              size="sm"
-              disabled={isLoading("/bracket") || (forCount === 0 || againstCount === 0)}
-              onClick={() => action("/bracket")}
-            >
-              {isLoading("/bracket") ? "Generating…" : "Generate Bracket"}
-            </Button>
-          )}
+          {(status === "REGISTRATION_CLOSED" || status === "REGISTRATION_OPEN") && (() => {
+            const guaranteeShortfall = prizeGuaranteePence && prizePoolPence < prizeGuaranteePence
+              ? prizeGuaranteePence - prizePoolPence
+              : 0;
+            const blocked = forCount === 0 || againstCount === 0 || guaranteeShortfall > 0;
+            return (
+              <>
+                <Button
+                  size="sm"
+                  disabled={isLoading("/bracket") || blocked}
+                  onClick={() => action("/bracket")}
+                >
+                  {isLoading("/bracket") ? "Generating…" : "Generate Bracket"}
+                </Button>
+                {guaranteeShortfall > 0 && (
+                  <p className="text-xs text-amber-400">
+                    Locked — need £{(guaranteeShortfall / 100).toFixed(2)} more in entry fees to meet the prize guarantee.
+                  </p>
+                )}
+              </>
+            );
+          })()}
           {status === "BRACKET_GENERATED" && (
             <Button
               size="sm"

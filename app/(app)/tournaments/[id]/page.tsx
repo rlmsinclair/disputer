@@ -75,10 +75,23 @@ Judge this dispute and return your verdict as JSON.`;
             )}
           </div>
           <div className="flex flex-col items-end gap-1.5 shrink-0">
-            <Badge variant="outline" className="text-sm px-3 py-1 font-bold">
-              £{(prizeNet / 100).toFixed(2)} prize pool
-            </Badge>
-            <span className="text-xs text-muted-foreground">split between 2 champions</span>
+            {tournament.prizeGuaranteePence ? (
+              <>
+                <Badge variant="outline" className="text-sm px-3 py-1 font-bold">
+                  £{(Math.floor(tournament.prizeGuaranteePence * (10000 - tournament.platformCutBps) / 10000) / 100).toFixed(2)} guaranteed prize
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  £{(prizeNet / 100).toFixed(2)} collected so far · split between 2 champions
+                </span>
+              </>
+            ) : (
+              <>
+                <Badge variant="outline" className="text-sm px-3 py-1 font-bold">
+                  £{(prizeNet / 100).toFixed(2)} prize pool
+                </Badge>
+                <span className="text-xs text-muted-foreground">split between 2 champions</span>
+              </>
+            )}
           </div>
         </div>
 

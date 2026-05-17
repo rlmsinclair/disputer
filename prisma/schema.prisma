@@ -222,6 +222,7 @@ model Tournament {
   prizePoolPence       Int              @default(0)
   platformCutBps       Int              @default(1000)
   maxTypingSpeedWpm    Int?
+  prizeGuaranteePence  Int?
   registrationDeadline DateTime
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt

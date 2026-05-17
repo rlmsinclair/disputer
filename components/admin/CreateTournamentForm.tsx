@@ -15,6 +15,7 @@ export function CreateTournamentForm() {
     topic: "",
     description: "",
     entryFeePence: 0,
+    prizeGuaranteePence: "",
     platformCutBps: 1000,
     maxTypingSpeedWpm: "",
     registrationDeadline: "",
@@ -35,6 +36,7 @@ export function CreateTournamentForm() {
           ...form,
           maxTypingSpeedWpm: form.maxTypingSpeedWpm ? parseInt(form.maxTypingSpeedWpm) : null,
           entryFeePence: Math.round(form.entryFeePence * 100),
+          prizeGuaranteePence: form.prizeGuaranteePence ? Math.round(parseFloat(form.prizeGuaranteePence) * 100) : null,
         }),
       });
       if (!res.ok) {
@@ -103,6 +105,23 @@ export function CreateTournamentForm() {
             onChange={(e) => set("entryFeePence", parseFloat(e.target.value) || 0)}
           />
           <p className="text-[11px] text-muted-foreground">Set to 0 for a free tournament</p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="prizeGuarantee">
+            Guaranteed Prize (£){" "}
+            <span className="text-muted-foreground font-normal">(optional)</span>
+          </Label>
+          <Input
+            id="prizeGuarantee"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="e.g. 100.00"
+            value={form.prizeGuaranteePence}
+            onChange={(e) => set("prizeGuaranteePence", e.target.value)}
+          />
+          <p className="text-[11px] text-muted-foreground">Bracket locked until entry fees reach this amount</p>
         </div>
 
         <div className="space-y-1.5">

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!await requireAdmin()) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { title, topic, description, entryFeePence, platformCutBps, maxTypingSpeedWpm, registrationDeadline } = body;
+  const { title, topic, description, entryFeePence, platformCutBps, maxTypingSpeedWpm, prizeGuaranteePence, registrationDeadline } = body;
 
   if (!title?.trim() || !topic?.trim() || !registrationDeadline) {
     return NextResponse.json({ error: "title, topic, and registrationDeadline are required" }, { status: 400 });
@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
       entryFeePence: entryFeePence ?? 0,
       platformCutBps: platformCutBps ?? 1000,
       maxTypingSpeedWpm: maxTypingSpeedWpm || null,
+      prizeGuaranteePence: prizeGuaranteePence || null,
       registrationDeadline: new Date(registrationDeadline),
     },
   });

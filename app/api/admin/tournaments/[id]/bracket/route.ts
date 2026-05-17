@@ -22,6 +22,13 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   });
   if (!tournament) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  if (tournament.prizeGuaranteePence && tournament.prizePoolPence < tournament.prizeGuaranteePence) {
+    const shortfall = ((tournament.prizeGuaranteePence - tournament.prizePoolPence) / 100).toFixed(2);
+    return NextResponse.json({
+      error: `Prize guarantee not met. Need £${shortfall} more in entry fees before the bracket can be generated.`,
+    }, { status: 400 });
+  }
+
   const forPlayers = tournament.registrations
     .filter((r) => r.side === "FOR")
     .sort((a, b) => b.seedElo - a.seedElo);
