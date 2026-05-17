@@ -45,6 +45,7 @@ export default async function TournamentAdminDetailPage({ params }: { params: Pr
   if (!tournament) notFound();
 
   const registered = tournament.registrations;
+  const isOpenQuestion = tournament.type === "OPEN_QUESTION";
   const forPlayers = registered.filter((r) => r.side === "FOR");
   const againstPlayers = registered.filter((r) => r.side === "AGAINST");
   const prizeNet = Math.floor(tournament.prizePoolPence * (10000 - tournament.platformCutBps) / 10000);
@@ -131,11 +132,11 @@ export default async function TournamentAdminDetailPage({ params }: { params: Pr
       </div>
 
       {/* Registrations */}
-      <div className="grid grid-cols-2 gap-6">
+      {isOpenQuestion ? (
         <div className="space-y-2">
-          <h2 className="text-sm font-semibold text-blue-400">For ({forPlayers.length})</h2>
-          {forPlayers.length === 0 && <p className="text-xs text-muted-foreground">No registrations yet</p>}
-          {forPlayers.map((r, i) => (
+          <h2 className="text-sm font-semibold">Participants ({registered.length})</h2>
+          {registered.length === 0 && <p className="text-xs text-muted-foreground">No registrations yet</p>}
+          {[...registered].sort((a, b) => b.seedElo - a.seedElo).map((r, i) => (
             <div key={r.userId} className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground text-xs w-4">{i + 1}.</span>
               <span>{r.user.username}</span>
@@ -143,18 +144,32 @@ export default async function TournamentAdminDetailPage({ params }: { params: Pr
             </div>
           ))}
         </div>
-        <div className="space-y-2">
-          <h2 className="text-sm font-semibold text-violet-400">Against ({againstPlayers.length})</h2>
-          {againstPlayers.length === 0 && <p className="text-xs text-muted-foreground">No registrations yet</p>}
-          {againstPlayers.map((r, i) => (
-            <div key={r.userId} className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground text-xs w-4">{i + 1}.</span>
-              <span>{r.user.username}</span>
-              <span className="text-xs text-muted-foreground">{r.seedElo} ELO</span>
-            </div>
-          ))}
+      ) : (
+        <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold text-blue-400">For ({forPlayers.length})</h2>
+            {forPlayers.length === 0 && <p className="text-xs text-muted-foreground">No registrations yet</p>}
+            {forPlayers.map((r, i) => (
+              <div key={r.userId} className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground text-xs w-4">{i + 1}.</span>
+                <span>{r.user.username}</span>
+                <span className="text-xs text-muted-foreground">{r.seedElo} ELO</span>
+              </div>
+            ))}
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold text-violet-400">Against ({againstPlayers.length})</h2>
+            {againstPlayers.length === 0 && <p className="text-xs text-muted-foreground">No registrations yet</p>}
+            {againstPlayers.map((r, i) => (
+              <div key={r.userId} className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground text-xs w-4">{i + 1}.</span>
+                <span>{r.user.username}</span>
+                <span className="text-xs text-muted-foreground">{r.seedElo} ELO</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Controls */}
       <TournamentControls
