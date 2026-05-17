@@ -547,7 +547,7 @@ export function DisputeRoom({
                       sendMessage();
                     }
                   }}
-                  className="flex-1 resize-none rounded-lg border border-border/50 bg-input/50 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="flex-1 resize-none rounded-lg border border-border/50 bg-input/50 px-3 py-2 text-base md:text-sm outline-none placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 />
                 <div className="flex flex-col gap-1.5">
                   <Button

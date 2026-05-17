@@ -433,7 +433,7 @@ export function LobbyRoom({ initialLobby, currentUserId, isPlayer }: Props) {
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && sendChat()}
-                  className="bg-input/50 h-9 text-sm"
+                  className="bg-input/50 h-9 text-base md:text-sm"
                   maxLength={500}
                 />
                 <Button size="sm" onClick={sendChat} className="shrink-0 gap-1.5">
