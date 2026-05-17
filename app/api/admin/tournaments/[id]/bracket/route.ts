@@ -74,7 +74,7 @@ async function generateBracket(tournamentId: string) {
     }
 
     const maxSide = Math.max(forPlayers.length, againstPlayers.length);
-    slots = Math.pow(2, Math.ceil(Math.log2(Math.max(maxSide, 1))));
+    slots = Math.pow(2, Math.ceil(Math.log2(Math.max(maxSide, 2))));
     roundCount = Math.log2(slots);
     forSeeded = [...forPlayers.map((r) => r.userId), ...Array(slots - forPlayers.length).fill(null)] as (string | null)[];
     againstSeeded = [...againstPlayers.map((r) => r.userId), ...Array(slots - againstPlayers.length).fill(null)] as (string | null)[];
