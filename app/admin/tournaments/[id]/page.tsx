@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { TournamentControls } from "@/components/admin/TournamentControls";
+import { TournamentRefresher } from "@/components/admin/TournamentRefresher";
 import { ArrowLeft } from "lucide-react";
 
 const STATUS_COLOURS: Record<string, string> = {
@@ -82,6 +83,7 @@ export default async function TournamentAdminDetailPage({ params }: { params: Pr
 
   return (
     <div className="space-y-8">
+      <TournamentRefresher tournamentId={tournament.id} />
       <div className="flex items-start gap-3">
         <Link href="/admin/tournaments" className="mt-1 text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" />

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { TournamentRegisterForm } from "@/components/tournament/TournamentRegisterForm";
 import { BracketView } from "@/components/tournament/BracketView";
+import { RefreshCw } from "lucide-react";
 import { JUDGE_SYSTEM_PROMPT } from "@/lib/prompts";
 
 const AVAILABLE_MODELS: Record<string, string> = {
@@ -182,12 +183,18 @@ Judge this dispute and return your verdict as JSON.`;
 
       {/* Bracket */}
       {tournament.rounds.length > 0 && (
+        <>
         <BracketView
           tournamentId={tournament.id}
           rounds={tournament.rounds}
           currentUserId={userId}
           totalRounds={tournament.rounds.length}
         />
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <RefreshCw className="h-3 w-3" />
+          Bracket updates automatically. If your match isn&apos;t showing, refresh the page.
+        </p>
+        </>
       )}
 
       {/* How winners are decided */}
