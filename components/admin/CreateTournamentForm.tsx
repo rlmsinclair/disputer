@@ -16,6 +16,7 @@ export function CreateTournamentForm() {
     description: "",
     entryFeePence: 0,
     prizeGuaranteePence: "",
+    prizeGuaranteeMinPct: 100,
     platformCutBps: 1000,
     maxTypingSpeedWpm: "",
     registrationDeadline: "",
@@ -37,6 +38,7 @@ export function CreateTournamentForm() {
           maxTypingSpeedWpm: form.maxTypingSpeedWpm ? parseInt(form.maxTypingSpeedWpm) : null,
           entryFeePence: Math.round(form.entryFeePence * 100),
           prizeGuaranteePence: form.prizeGuaranteePence ? Math.round(parseFloat(form.prizeGuaranteePence) * 100) : null,
+          prizeGuaranteeMinPct: form.prizeGuaranteeMinPct,
         }),
       });
       if (!res.ok) {
@@ -123,20 +125,38 @@ export function CreateTournamentForm() {
           />
           <p className="text-[11px] text-muted-foreground">Bracket locked until entry fees reach this amount</p>
         </div>
+      </div>
 
+      {form.prizeGuaranteePence && (
         <div className="space-y-1.5">
-          <Label htmlFor="platformCut">Platform Cut (basis points)</Label>
+          <Label htmlFor="minPct">Minimum % of guarantee to unlock bracket</Label>
           <Input
-            id="platformCut"
+            id="minPct"
             type="number"
             min="0"
-            max="10000"
-            step="100"
-            value={form.platformCutBps}
-            onChange={(e) => set("platformCutBps", parseInt(e.target.value) || 0)}
+            max="100"
+            step="5"
+            value={form.prizeGuaranteeMinPct}
+            onChange={(e) => set("prizeGuaranteeMinPct", parseInt(e.target.value) ?? 100)}
           />
-          <p className="text-[11px] text-muted-foreground">1000 = 10%</p>
+          <p className="text-[11px] text-muted-foreground">
+            0% = start any time regardless of entries · 50% = start when half is covered · 100% = fully funded (default)
+          </p>
         </div>
+      )}
+
+      <div className="space-y-1.5">
+        <Label htmlFor="platformCut">Platform Cut (basis points)</Label>
+        <Input
+          id="platformCut"
+          type="number"
+          min="0"
+          max="10000"
+          step="100"
+          value={form.platformCutBps}
+          onChange={(e) => set("platformCutBps", parseInt(e.target.value) || 0)}
+        />
+        <p className="text-[11px] text-muted-foreground">1000 = 10%</p>
       </div>
 
       <div className="space-y-1.5">

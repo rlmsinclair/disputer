@@ -158,6 +158,7 @@ export default async function TournamentAdminDetailPage({ params }: { params: Pr
         againstCount={againstPlayers.length}
         prizePoolPence={tournament.prizePoolPence}
         prizeGuaranteePence={tournament.prizeGuaranteePence}
+        prizeGuaranteeMinPct={tournament.prizeGuaranteeMinPct}
         rounds={controlRounds}
       />
 

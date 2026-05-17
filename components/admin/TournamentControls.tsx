@@ -23,10 +23,11 @@ interface Props {
   againstCount: number;
   prizePoolPence: number;
   prizeGuaranteePence: number | null;
+  prizeGuaranteeMinPct: number;
   rounds: { id: string; roundNumber: number; matches: Match[] }[];
 }
 
-export function TournamentControls({ tournamentId, status, forCount, againstCount, prizePoolPence, prizeGuaranteePence, rounds }: Props) {
+export function TournamentControls({ tournamentId, status, forCount, againstCount, prizePoolPence, prizeGuaranteePence, prizeGuaranteeMinPct, rounds }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [topUpGbp, setTopUpGbp] = useState("");
@@ -69,10 +70,11 @@ export function TournamentControls({ tournamentId, status, forCount, againstCoun
             </Button>
           )}
           {(status === "REGISTRATION_CLOSED" || status === "REGISTRATION_OPEN") && (() => {
-            const guaranteeShortfall = prizeGuaranteePence && prizePoolPence < prizeGuaranteePence
-              ? prizeGuaranteePence - prizePoolPence
+            const threshold = prizeGuaranteePence && prizeGuaranteeMinPct > 0
+              ? Math.floor(prizeGuaranteePence * prizeGuaranteeMinPct / 100)
               : 0;
-            const blocked = forCount === 0 || againstCount === 0 || guaranteeShortfall > 0;
+            const shortfall = threshold > prizePoolPence ? threshold - prizePoolPence : 0;
+            const blocked = forCount === 0 || againstCount === 0 || shortfall > 0;
             return (
               <>
                 <Button
@@ -82,9 +84,14 @@ export function TournamentControls({ tournamentId, status, forCount, againstCoun
                 >
                   {isLoading("/bracket") ? "Generating…" : "Generate Bracket"}
                 </Button>
-                {guaranteeShortfall > 0 && (
+                {shortfall > 0 && (
                   <p className="text-xs text-amber-400">
-                    Locked — need £{(guaranteeShortfall / 100).toFixed(2)} more in entry fees to meet the prize guarantee.
+                    Locked — need £{(shortfall / 100).toFixed(2)} more in entry fees ({prizeGuaranteeMinPct}% threshold).
+                  </p>
+                )}
+                {prizeGuaranteePence && prizeGuaranteeMinPct === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No entry fee minimum set — bracket can start any time.
                   </p>
                 )}
               </>
