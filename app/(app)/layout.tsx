@@ -23,6 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen flex-col">
       <Navbar
         username={user.username}
+        userId={session.user.id}
         elo={user.elo ?? 1200}
         unreadNotifications={unreadCount}
       />

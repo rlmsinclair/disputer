@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { Bell, Trophy } from "lucide-react";
+import { Bell, Calendar, Swords, Trophy, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default async function NotificationsPage() {
@@ -56,6 +56,67 @@ export default async function NotificationsPage() {
                         </Badge>
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">{date}</p>
+                    </div>
+                    {!n.read && <span className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+                  </div>
+                </Link>
+              );
+            }
+
+            if (n.type === "TOURNAMENT_MATCH_STARTING") {
+              return (
+                <Link key={n.id} href={payload.lobbyId ? `/lobby/${payload.lobbyId}` : `/tournaments/${payload.tournamentId}`}>
+                  <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 hover:border-border transition-colors ${n.read ? "border-border/30 bg-card" : "border-amber-500/20 bg-amber-500/5"}`}>
+                    <Swords className="h-4 w-4 mt-0.5 shrink-0 text-amber-400" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">Your tournament match is ready</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Go to your lobby to start — {date}</p>
+                    </div>
+                    {!n.read && <span className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+                  </div>
+                </Link>
+              );
+            }
+
+            if (n.type === "TOURNAMENT_MATCH_SCHEDULED") {
+              return (
+                <Link key={n.id} href={`/tournaments/${payload.tournamentId}`}>
+                  <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 hover:border-border transition-colors ${n.read ? "border-border/30 bg-card" : "border-blue-500/20 bg-blue-500/5"}`}>
+                    <Calendar className="h-4 w-4 mt-0.5 shrink-0 text-blue-400" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">Round {payload.roundNumber as number} scheduled</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Opponent: {payload.opponentUsername as string} — {date}</p>
+                    </div>
+                    {!n.read && <span className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+                  </div>
+                </Link>
+              );
+            }
+
+            if (n.type === "TOURNAMENT_ELIMINATED") {
+              return (
+                <Link key={n.id} href={`/tournaments/${payload.tournamentId}`}>
+                  <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 hover:border-border transition-colors ${n.read ? "border-border/30 bg-card" : "border-destructive/20 bg-destructive/5"}`}>
+                    <X className="h-4 w-4 mt-0.5 shrink-0 text-destructive" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">Eliminated from {payload.tournamentTitle as string}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Round {payload.roundNumber as number} — {date}</p>
+                    </div>
+                    {!n.read && <span className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+                  </div>
+                </Link>
+              );
+            }
+
+            if (n.type === "TOURNAMENT_WINNER") {
+              const prizeGbp = ((payload.prizeEstimatePence as number) / 100).toFixed(2);
+              return (
+                <Link key={n.id} href={`/tournaments/${payload.tournamentId}`}>
+                  <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 hover:border-border transition-colors ${n.read ? "border-border/30 bg-card" : "border-green-500/20 bg-green-500/5"}`}>
+                    <Trophy className="h-4 w-4 mt-0.5 shrink-0 text-green-400" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">🏆 You won {payload.tournamentTitle as string}!</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">~£{prizeGbp} prize — {date}</p>
                     </div>
                     {!n.read && <span className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />}
                   </div>

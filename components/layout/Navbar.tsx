@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Bell, LogOut, Trophy, User } from "lucide-react";
+import { getSocket } from "@/hooks/useSocket";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,12 +17,17 @@ import {
 
 interface NavbarProps {
   username: string;
+  userId: string;
   elo: number;
   unreadNotifications: number;
 }
 
-export function Navbar({ username, elo = 1200, unreadNotifications = 0 }: NavbarProps) {
+export function Navbar({ username, userId, elo = 1200, unreadNotifications = 0 }: NavbarProps) {
   const router = useRouter();
+
+  useEffect(() => {
+    getSocket().emit("user:join", { userId });
+  }, [userId]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/95 backdrop-blur">
@@ -38,8 +45,8 @@ export function Navbar({ username, elo = 1200, unreadNotifications = 0 }: Navbar
             <span className="text-muted-foreground">ELO</span>
           </span>
 
-          <Link href="/leaderboard">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Link href="/tournaments">
+            <Button variant="ghost" size="icon" className="h-8 w-8" title="Tournaments">
               <Trophy className="h-4 w-4" />
             </Button>
           </Link>

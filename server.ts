@@ -5,6 +5,7 @@ import next from "next";
 import { Server as SocketIOServer } from "socket.io";
 import { registerLobbyHandlers } from "@/lib/socket/lobbyHandlers";
 import { registerDisputeHandlers } from "@/lib/socket/disputeHandlers";
+import { registerUserHandlers } from "@/lib/socket/userHandlers";
 
 const dev = process.env.NODE_ENV !== "production";
 const app = next({ dev });
@@ -31,6 +32,7 @@ app.prepare().then(() => {
   (globalThis as unknown as { io: SocketIOServer }).io = io;
 
   io.on("connection", (socket) => {
+    registerUserHandlers(io, socket);
     registerLobbyHandlers(io, socket);
     registerDisputeHandlers(io, socket);
   });

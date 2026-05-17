@@ -3,7 +3,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
-import { Flag, LayoutDashboard, Users } from "lucide-react";
+import { Flag, LayoutDashboard, Trophy, Users } from "lucide-react";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -16,6 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
     { href: "/admin/reports", label: "Reports", icon: Flag, badge: pendingReports },
     { href: "/admin/users", label: "Users", icon: Users },
+    { href: "/admin/tournaments", label: "Tournaments", icon: Trophy },
   ];
 
   return (

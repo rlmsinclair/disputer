@@ -30,6 +30,39 @@ enum ReportStatus {
 enum NotificationType {
   DISPUTE_RESULT
   REMATCH_REQUEST
+  TOURNAMENT_MATCH_SCHEDULED
+  TOURNAMENT_MATCH_STARTING
+  TOURNAMENT_ELIMINATED
+  TOURNAMENT_WINNER
+}
+
+enum TournamentStatus {
+  REGISTRATION_OPEN
+  REGISTRATION_CLOSED
+  BRACKET_GENERATED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TournamentSide {
+  FOR
+  AGAINST
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LOBBY_CREATED
+  IN_PROGRESS
+  COMPLETED
+  BYE
+  CANCELLED
+}
+
+enum RegistrationStatus {
+  PENDING_PAYMENT
+  REGISTERED
+  REFUNDED
 }
 
 model User {
@@ -43,13 +76,17 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  lobbyPlayers      LobbyPlayer[]
-  disputePlayers    DisputePlayer[]
-  messages          Message[]
-  notifications     Notification[]
-  reportsFiled      Report[]           @relation("ReportsFiled")
-  reportsReceived   Report[]           @relation("ReportsReceived")
-  pushSubscriptions PushSubscription[]
+  lobbyPlayers            LobbyPlayer[]
+  disputePlayers          DisputePlayer[]
+  messages                Message[]
+  notifications           Notification[]
+  reportsFiled            Report[]                 @relation("ReportsFiled")
+  reportsReceived         Report[]                 @relation("ReportsReceived")
+  pushSubscriptions       PushSubscription[]
+  tournamentRegistrations TournamentRegistration[]
+  matchesAsFor            TournamentMatch[]        @relation("MatchForPlayer")
+  matchesAsAgainst        TournamentMatch[]        @relation("MatchAgainstPlayer")
+  matchesWon              TournamentMatch[]        @relation("MatchWinner")
 }
 
 model Lobby {
@@ -63,8 +100,9 @@ model Lobby {
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
 
-  players LobbyPlayer[]
-  dispute Dispute?
+  players         LobbyPlayer[]
+  dispute         Dispute?
+  tournamentMatch TournamentMatch?
 }
 
 model LobbyPlayer {
@@ -89,11 +127,12 @@ model Dispute {
   wordsUsed Int           @default(0)
   isPrivate Boolean       @default(false)
 
-  lobby    Lobby           @relation(fields: [lobbyId], references: [id])
-  players  DisputePlayer[]
-  messages Message[]
-  result   DisputeResult?
-  reports  Report[]
+  lobby           Lobby           @relation(fields: [lobbyId], references: [id])
+  players         DisputePlayer[]
+  messages        Message[]
+  result          DisputeResult?
+  reports         Report[]
+  tournamentMatch TournamentMatch?
 }
 
 model DisputePlayer {
@@ -111,13 +150,15 @@ model DisputePlayer {
 }
 
 model Message {
-  id         String   @id @default(cuid())
-  disputeId  String
-  userId     String
-  content    String
-  wordCount  Int
-  turnNumber Int
-  createdAt  DateTime @default(now())
+  id             String   @id @default(cuid())
+  disputeId      String
+  userId         String
+  content        String
+  wordCount      Int
+  turnNumber     Int
+  wordsPerMinute Float?
+  isFlagged      Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
   dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id])
@@ -169,4 +210,69 @@ model PushSubscription {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Tournament {
+  id                   String           @id @default(cuid())
+  title                String
+  topic                String
+  description          String?
+  status               TournamentStatus @default(REGISTRATION_OPEN)
+  entryFeePence        Int              @default(0)
+  prizePoolPence       Int              @default(0)
+  platformCutBps       Int              @default(1000)
+  maxTypingSpeedWpm    Int?
+  registrationDeadline DateTime
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  registrations TournamentRegistration[]
+  rounds        TournamentRound[]
+}
+
+model TournamentRegistration {
+  id                    String             @id @default(cuid())
+  tournamentId          String
+  userId                String
+  side                  TournamentSide
+  status                RegistrationStatus @default(PENDING_PAYMENT)
+  stripeCheckoutId      String?            @unique
+  stripePaymentIntentId String?
+  seedElo               Int                @default(1200)
+  registeredAt          DateTime           @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@unique([tournamentId, userId])
+}
+
+model TournamentRound {
+  id           String   @id @default(cuid())
+  tournamentId String
+  roundNumber  Int
+  scheduledAt  DateTime
+
+  tournament Tournament      @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  matches    TournamentMatch[]
+
+  @@unique([tournamentId, roundNumber])
+}
+
+model TournamentMatch {
+  id            String      @id @default(cuid())
+  roundId       String
+  forUserId     String?
+  againstUserId String?
+  winnerUserId  String?
+  status        MatchStatus @default(SCHEDULED)
+  lobbyId       String?     @unique
+  disputeId     String?     @unique
+
+  round       TournamentRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  forUser     User?           @relation("MatchForPlayer", fields: [forUserId], references: [id])
+  againstUser User?           @relation("MatchAgainstPlayer", fields: [againstUserId], references: [id])
+  winner      User?           @relation("MatchWinner", fields: [winnerUserId], references: [id])
+  lobby       Lobby?          @relation(fields: [lobbyId], references: [id])
+  dispute     Dispute?        @relation(fields: [disputeId], references: [id])
 }

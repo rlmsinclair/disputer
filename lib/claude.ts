@@ -3,36 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 const client = new Anthropic();
 
-interface JudgeResult {
-  winnerIds: string[];
-  reason: string;
-  claudeResponse: string;
-}
-
-export async function judgeDispute(disputeId: string): Promise<JudgeResult> {
-  const dispute = await prisma.dispute.findUnique({
-    where: { id: disputeId },
-    include: {
-      players: { include: { user: { select: { id: true, username: true } } } },
-      messages: { include: { user: { select: { id: true, username: true } } }, orderBy: { createdAt: "asc" } },
-    },
-  });
-  if (!dispute) throw new Error("Dispute not found");
-
-  const lobby = await prisma.lobby.findUnique({ where: { id: dispute.lobbyId } });
-
-  const transcript = dispute.messages.map((m) => ({
-    username: m.user.username,
-    userId: m.user.id,
-    message: m.content,
-    timestamp: m.createdAt,
-  }));
-
-  const participantList = dispute.players
-    .map((p) => `- ${p.user.username} (id: ${p.user.id})`)
-    .join("\n");
-
-  const systemPrompt = `You are an impartial judge of a structured debate called "Dispute".
+export const JUDGE_SYSTEM_PROMPT = `You are an impartial judge of a structured debate called "Dispute".
 Your task is to read a conversation transcript, determine the winner(s), and explain your reasoning.
 
 Rules:
@@ -48,7 +19,38 @@ Respond with a valid JSON object in exactly this format:
   "reason": "A comprehensive explanation of why the winner(s) won and what made their arguments stronger."
 }`;
 
-  const userMessage = `Topic: ${lobby?.topic ?? "Unspecified"}
+interface JudgeResult {
+  winnerIds: string[];
+  reason: string;
+  claudeResponse: string;
+}
+
+export async function judgeDispute(disputeId: string): Promise<JudgeResult> {
+  const dispute = await prisma.dispute.findUnique({
+    where: { id: disputeId },
+    include: {
+      players: { include: { user: { select: { id: true, username: true } } } },
+      messages: { include: { user: { select: { id: true, username: true } } }, orderBy: { createdAt: "asc" } },
+      tournamentMatch: { include: { round: { include: { tournament: { select: { description: true } } } } } },
+    },
+  });
+  if (!dispute) throw new Error("Dispute not found");
+
+  const lobby = await prisma.lobby.findUnique({ where: { id: dispute.lobbyId } });
+  const tournamentDescription = dispute.tournamentMatch?.round?.tournament?.description ?? null;
+
+  const transcript = dispute.messages.map((m) => ({
+    username: m.user.username,
+    userId: m.user.id,
+    message: m.content,
+    timestamp: m.createdAt,
+  }));
+
+  const participantList = dispute.players
+    .map((p) => `- ${p.user.username} (id: ${p.user.id})`)
+    .join("\n");
+
+  const userMessage = `Topic: ${lobby?.topic ?? "Unspecified"}${tournamentDescription ? `\nContext: ${tournamentDescription}` : ""}
 
 Participants:
 ${participantList}
@@ -61,7 +63,7 @@ Judge this dispute and return your verdict as JSON.`;
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
-    system: systemPrompt,
+    system: JUDGE_SYSTEM_PROMPT,
     messages: [{ role: "user", content: userMessage }],
   });
 

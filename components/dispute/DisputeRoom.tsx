@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -102,6 +102,7 @@ interface Props {
   currentUserId: string;
   currentUsername: string;
   isPlayer: boolean;
+  maxTypingSpeedWpm?: number | null;
 }
 
 export function DisputeRoom({
@@ -109,6 +110,7 @@ export function DisputeRoom({
   initialResult,
   currentUserId,
   isPlayer,
+  maxTypingSpeedWpm,
 }: Props) {
   const router = useRouter();
   const [dispute, dispatch] = useReducer(reducer, initialDispute);
@@ -120,6 +122,7 @@ export function DisputeRoom({
   const [liveDrafts, setLiveDrafts] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sessionStartTimeRef = useRef<number | null>(null);
 
   const me = dispute.players.find((p) => p.userId === currentUserId);
   const iAmDisconnected = me && !me.isActive && dispute.status === "IN_PROGRESS";
@@ -205,7 +208,10 @@ export function DisputeRoom({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispute.id, dispute.status, isPlayer, currentUserId]);
 
-  function updateDraft(value: string) {
+  const updateDraft = useCallback((value: string) => {
+    if (value && !draft) {
+      sessionStartTimeRef.current = Date.now();
+    }
     setDraft(value);
     if (isPlayer && dispute.status === "IN_PROGRESS") {
       getSocket().emit("dispute:typing", {
@@ -214,15 +220,25 @@ export function DisputeRoom({
         content: value,
       });
     }
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, dispute.id, dispute.status, isPlayer, currentUserId]);
 
   function sendMessage() {
     if (!draft.trim() || sending) return;
     setSending(true);
+
+    const wordCount = draft.trim().split(/\s+/).filter(Boolean).length;
+    const elapsedMs = sessionStartTimeRef.current ? Date.now() - sessionStartTimeRef.current : null;
+    const wordsPerMinute = elapsedMs && elapsedMs > 0
+      ? (wordCount / elapsedMs) * 60_000
+      : null;
+    sessionStartTimeRef.current = null;
+
     getSocket().emit("dispute:message", {
       disputeId: dispute.id,
       userId: currentUserId,
       content: draft.trim(),
+      ...(wordsPerMinute !== null ? { wordsPerMinute } : {}),
     });
     setDraft("");
     setSending(false);
@@ -470,6 +486,11 @@ export function DisputeRoom({
           {/* ── Input ── */}
           {isPlayer && dispute.status === "IN_PROGRESS" && !iAmDisconnected && (
             <div className="border-t border-border/50 bg-card px-4 pt-3 pb-4 space-y-2 shrink-0">
+              {maxTypingSpeedWpm && (
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <span className="font-semibold">Max speed:</span> {maxTypingSpeedWpm} WPM enforced
+                </p>
+              )}
               <div className="flex gap-2">
                 <textarea
                   ref={textareaRef}

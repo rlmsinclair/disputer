@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { judgeDispute } from "@/lib/claude";
 import { calculateElo } from "@/lib/elo";
 import { countWords } from "@/lib/wordcount";
+import { advanceBracket } from "@/lib/tournament";
 
 const passedUsers = new Map<string, Set<string>>();
 
@@ -52,18 +53,32 @@ export function registerDisputeHandlers(io: Server, socket: Socket) {
     disputeId: string;
     userId: string;
     content: string;
+    wordsPerMinute?: number;
   }) => {
-    const { disputeId, userId, content } = data;
+    const { disputeId, userId, content, wordsPerMinute } = data;
 
     const dispute = await prisma.dispute.findUnique({
       where: { id: disputeId },
-      include: { players: { orderBy: { circlePosition: "asc" } }, lobby: true },
+      include: {
+        players: { orderBy: { circlePosition: "asc" } },
+        lobby: true,
+        tournamentMatch: { include: { round: { include: { tournament: true } } } },
+      },
     });
     if (!dispute || dispute.status !== "IN_PROGRESS") return;
 
     const isActivePlayer = dispute.players.some((p) => p.userId === userId && p.isActive);
     if (!isActivePlayer) {
       socket.emit("dispute:error", { message: "You are not an active player." });
+      return;
+    }
+
+    // WPM enforcement for tournament matches
+    const maxWpm = dispute.tournamentMatch?.round?.tournament?.maxTypingSpeedWpm ?? null;
+    if (maxWpm && wordsPerMinute && wordsPerMinute > maxWpm) {
+      socket.emit("dispute:error", {
+        message: `Message rejected: typing speed (${Math.round(wordsPerMinute)} WPM) exceeded the ${maxWpm} WPM limit.`,
+      });
       return;
     }
 
@@ -81,7 +96,10 @@ export function registerDisputeHandlers(io: Server, socket: Socket) {
 
     const turnNumber = await prisma.message.count({ where: { disputeId } });
     const message = await prisma.message.create({
-      data: { disputeId, userId, content, wordCount, turnNumber: turnNumber + 1 },
+      data: {
+        disputeId, userId, content, wordCount, turnNumber: turnNumber + 1,
+        wordsPerMinute: wordsPerMinute ?? null,
+      },
       include: { user: { select: { id: true, username: true } } },
     });
 
@@ -303,4 +321,18 @@ async function applyEloAndSettle(
       newElo: p.user.elo,
     })),
   });
+
+  // Advance tournament bracket if this dispute was part of one
+  const tournamentMatch = await prisma.tournamentMatch.findUnique({
+    where: { disputeId },
+    include: { round: true },
+  });
+  if (tournamentMatch && winnerIds[0]) {
+    await prisma.tournamentMatch.update({
+      where: { id: tournamentMatch.id },
+      data: { status: "COMPLETED", winnerUserId: winnerIds[0] },
+    });
+    await advanceBracket(tournamentMatch.id, winnerIds[0]);
+    io.to(`tournament:${tournamentMatch.round.tournamentId}`).emit("tournament:bracket_updated");
+  }
 }

@@ -21,7 +21,7 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
 
     const lobby = await prisma.lobby.findUnique({
       where: { id: lobbyId },
-      include: { players: { select: playerSelect } },
+      include: { players: { select: playerSelect }, tournamentMatch: true },
     });
 
     socket.emit("lobby:state", {
@@ -32,6 +32,30 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     const joining = lobby?.players.find((p) => p.userId === userId);
     if (joining) {
       socket.to(`lobby:${lobbyId}`).emit("lobby:player_joined", joining);
+    }
+
+    // Auto-start tournament matches once both players have joined
+    if (lobby?.tournamentMatch && lobby.status === "WAITING") {
+      const allReady = lobby.players.length === 2 && lobby.players.every((p) => p.isReady);
+      if (allReady) {
+        const room = io.sockets.adapter.rooms.get(`lobby:${lobbyId}`);
+        if (room && room.size >= 2) {
+          try {
+            const disputeId = await startDispute(io, lobbyId);
+            if (disputeId) {
+              lobbyChatHistory.delete(lobbyId);
+              // Link disputeId to the tournament match
+              await prisma.tournamentMatch.update({
+                where: { id: lobby.tournamentMatch.id },
+                data: { disputeId, status: "IN_PROGRESS" },
+              });
+              io.to(`lobby:${lobbyId}`).emit("lobby:dispute_started", { disputeId });
+            }
+          } catch (err) {
+            console.error("[lobby:join] tournament auto-start failed:", err);
+          }
+        }
+      }
     }
   });
 
