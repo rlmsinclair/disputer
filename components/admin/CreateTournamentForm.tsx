@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { JUDGE_SYSTEM_PROMPT } from "@/lib/prompts";
+import { JUDGE_SYSTEM_PROMPT, OPEN_QUESTION_SYSTEM_PROMPT } from "@/lib/prompts";
 
 export function CreateTournamentForm() {
   const router = useRouter();
@@ -18,6 +18,7 @@ export function CreateTournamentForm() {
     description: "",
     entryFeePence: 0,
     prizeGuaranteePence: "",
+    lockBracket: false,
     prizeGuaranteeMinPct: 100,
     platformCutBps: 1000,
     maxTypingSpeedWpm: "",
@@ -29,8 +30,16 @@ export function CreateTournamentForm() {
     claudeTemperature: "",
   });
 
-  function set(field: string, value: string | number) {
+  function set(field: string, value: string | number | boolean) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function setType(type: string) {
+    setForm((prev) => ({
+      ...prev,
+      type,
+      customSystemPrompt: type === "OPEN_QUESTION" ? OPEN_QUESTION_SYSTEM_PROMPT : JUDGE_SYSTEM_PROMPT,
+    }));
   }
 
   async function submit(e: React.FormEvent) {
@@ -51,7 +60,7 @@ export function CreateTournamentForm() {
           claudeTemperature: form.claudeTemperature !== "" ? parseFloat(form.claudeTemperature) : null,
           entryFeePence: Math.round(form.entryFeePence * 100),
           prizeGuaranteePence: form.prizeGuaranteePence ? Math.round(parseFloat(form.prizeGuaranteePence) * 100) : null,
-          prizeGuaranteeMinPct: form.prizeGuaranteeMinPct,
+          prizeGuaranteeMinPct: form.lockBracket ? form.prizeGuaranteeMinPct : 0,
         }),
       });
       if (!res.ok) {
@@ -80,7 +89,7 @@ export function CreateTournamentForm() {
             <button
               key={value}
               type="button"
-              onClick={() => set("type", value)}
+              onClick={() => setType(value)}
               className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
                 form.type === value
                   ? "border-primary/50 bg-primary/10 text-foreground"
@@ -165,20 +174,38 @@ export function CreateTournamentForm() {
       </div>
 
       {form.prizeGuaranteePence && (
-        <div className="space-y-1.5">
-          <Label htmlFor="minPct">Minimum % of guarantee to unlock bracket</Label>
-          <Input
-            id="minPct"
-            type="number"
-            min="0"
-            max="100"
-            step="5"
-            value={form.prizeGuaranteeMinPct}
-            onChange={(e) => set("prizeGuaranteeMinPct", parseInt(e.target.value) ?? 100)}
-          />
-          <p className="text-[11px] text-muted-foreground">
-            0% = start any time regardless of entries · 50% = start when half is covered · 100% = fully funded (default)
-          </p>
+        <div className="space-y-3 rounded-lg border border-border/50 bg-secondary/20 p-3">
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.lockBracket}
+              onChange={(e) => set("lockBracket", e.target.checked)}
+              className="h-4 w-4 rounded border-border"
+            />
+            <span className="text-sm font-medium">Lock bracket until entry fees meet a threshold</span>
+          </label>
+          {form.lockBracket && (
+            <div className="space-y-1.5 pl-6">
+              <Label htmlFor="minPct">Minimum % of guaranteed prize required</Label>
+              <Input
+                id="minPct"
+                type="number"
+                min="1"
+                max="100"
+                step="5"
+                value={form.prizeGuaranteeMinPct}
+                onChange={(e) => set("prizeGuaranteeMinPct", parseInt(e.target.value) ?? 100)}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                e.g. 50 = unlock when half the prize is covered by entry fees · 100 = fully funded
+              </p>
+            </div>
+          )}
+          {!form.lockBracket && (
+            <p className="text-[11px] text-muted-foreground pl-6">
+              Bracket can start at any time regardless of how much has been collected.
+            </p>
+          )}
         </div>
       )}
 

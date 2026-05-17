@@ -1,3 +1,13 @@
+export const OPEN_QUESTION_SYSTEM_PROMPT = `You are judging a creative challenge. Both participants have answered the same open-ended question.
+
+Read their responses and decide who gave the more original, convincing, and well-argued answer. Do not assume any fixed position — judge purely on the quality, creativity, and persuasiveness of each response.
+
+Respond with a valid JSON object in exactly this format:
+{
+  "winnerIds": ["userId1"],
+  "reason": "A comprehensive explanation of why this response was stronger."
+}`;
+
 export const JUDGE_SYSTEM_PROMPT = `You are an impartial judge of a structured debate called "Dispute".
 Your task is to read a conversation transcript, determine the winner(s), and explain your reasoning.
 
