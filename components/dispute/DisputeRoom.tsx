@@ -299,26 +299,30 @@ export function DisputeRoom({
 
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between gap-3 border-b border-border/50 bg-background px-4 py-2.5 shrink-0">
-        <div className="min-w-0">
-          <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
-            {dispute.status === "IN_PROGRESS" ? "Live" : dispute.status === "JUDGING" ? "Judging" : "Ended"}
-          </p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
+              {dispute.status === "IN_PROGRESS" ? "Live" : dispute.status === "JUDGING" ? "Judging" : "Ended"}
+            </p>
+            {secondsLeft !== null && dispute.status === "IN_PROGRESS" && (() => {
+              const m = Math.floor(secondsLeft / 60);
+              const s = secondsLeft % 60;
+              const urgent = secondsLeft <= 30;
+              return (
+                <span className={`font-mono text-sm font-bold tabular-nums px-2 py-0.5 rounded border ${
+                  urgent ? "text-destructive border-destructive/30 bg-destructive/10 animate-pulse" : "text-foreground border-border/50 bg-secondary"
+                }`}>
+                  {m}:{String(s).padStart(2, "0")}
+                </span>
+              );
+            })()}
+          </div>
           <h2 className="font-bold leading-tight truncate">
             {dispute.lobby.topic ?? "Untitled dispute"}
           </h2>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {secondsLeft !== null && dispute.status === "IN_PROGRESS" && (() => {
-            const m = Math.floor(secondsLeft / 60);
-            const s = secondsLeft % 60;
-            const urgent = secondsLeft <= 30;
-            return (
-              <span className={`font-mono text-sm font-bold tabular-nums px-2 py-0.5 rounded ${urgent ? "text-destructive animate-pulse" : "text-muted-foreground"}`}>
-                {m}:{String(s).padStart(2, "0")}
-              </span>
-            );
-          })()}
           {isPlayer && dispute.status !== "COMPLETED" && dispute.status !== "CANCELLED" && (
             <Button
               variant="ghost"

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { toast } from "sonner";
 import { Bell, LogOut, Trophy, User } from "lucide-react";
 import { getSocket } from "@/hooks/useSocket";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,22 @@ export function Navbar({ username, userId, elo = 1200, unreadNotifications = 0 }
   const router = useRouter();
 
   useEffect(() => {
-    getSocket().emit("user:join", { userId });
+    const s = getSocket();
+    s.emit("user:join", { userId });
+
+    const handleMatchReady = ({ lobbyId }: { lobbyId: string }) => {
+      toast("Your tournament match is ready!", {
+        description: "Go to your lobby to start the debate.",
+        duration: Infinity,
+        action: {
+          label: "Go to lobby",
+          onClick: () => { window.location.href = `/lobby/${lobbyId}`; },
+        },
+      });
+    };
+
+    s.on("tournament:match_ready", handleMatchReady);
+    return () => { s.off("tournament:match_ready", handleMatchReady); };
   }, [userId]);
 
   return (
