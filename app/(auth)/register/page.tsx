@@ -13,7 +13,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 function RegisterForm() {
   const searchParams = useSearchParams();
   const raw = searchParams.get("callbackUrl") ?? "";
-  const callbackUrl = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/lobby";
+  const callbackUrl = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/tournaments";
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
