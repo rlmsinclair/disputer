@@ -178,6 +178,7 @@ export default async function TournamentAdminDetailPage({ params }: { params: Pr
         tournamentType={tournament.type}
         forCount={forPlayers.length}
         againstCount={againstPlayers.length}
+        registeredCount={registered.length}
         prizePoolPence={tournament.prizePoolPence}
         prizeGuaranteePence={tournament.prizeGuaranteePence}
         prizeGuaranteeMinPct={tournament.prizeGuaranteeMinPct}

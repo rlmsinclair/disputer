@@ -26,12 +26,13 @@ interface Props {
   prizeGuaranteePence: number | null;
   prizeGuaranteeMinPct: number;
   matchTimeLimitSeconds: number | null;
+  registeredCount: number;
   rounds: { id: string; roundNumber: number; matches: Match[] }[];
 }
 
-export function TournamentControls({ tournamentId, status, tournamentType, forCount, againstCount, prizePoolPence, prizeGuaranteePence, prizeGuaranteeMinPct, matchTimeLimitSeconds, rounds }: Props) {
+export function TournamentControls({ tournamentId, status, tournamentType, forCount, againstCount, registeredCount, prizePoolPence, prizeGuaranteePence, prizeGuaranteeMinPct, matchTimeLimitSeconds, rounds }: Props) {
   const isOpenQuestion = tournamentType === "OPEN_QUESTION";
-  const totalPlayers = forCount + againstCount;
+  const totalPlayers = isOpenQuestion ? registeredCount : forCount + againstCount;
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [topUpGbp, setTopUpGbp] = useState("");
