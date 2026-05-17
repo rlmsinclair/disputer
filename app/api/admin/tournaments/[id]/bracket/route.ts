@@ -13,6 +13,15 @@ async function requireAdmin() {
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!await requireAdmin()) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id: tournamentId } = await params;
+  try {
+    return await generateBracket(tournamentId);
+  } catch (err) {
+    console.error("[bracket] unhandled error:", err);
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Bracket generation failed" }, { status: 500 });
+  }
+}
+
+async function generateBracket(tournamentId: string) {
 
   const tournament = await prisma.tournament.findUnique({
     where: { id: tournamentId },

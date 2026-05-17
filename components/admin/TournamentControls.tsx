@@ -46,8 +46,10 @@ export function TournamentControls({ tournamentId, status, tournamentType, forCo
         headers: body ? { "Content-Type": "application/json" } : undefined,
         body: body ? JSON.stringify(body) : undefined,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Request failed");
+      const text = await res.text();
+      let data: Record<string, unknown> = {};
+      try { data = JSON.parse(text); } catch { /* non-JSON response */ }
+      if (!res.ok) throw new Error((data.error as string | undefined) ?? text ?? "Request failed");
       toast.success("Done");
       router.refresh();
     } catch (err) {
